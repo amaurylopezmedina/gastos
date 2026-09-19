@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Gastos</title>
+<meta name="description" content="Control de gastos personal, offline y privado.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b0b0f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gastos">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ VISTA: GASTOS ============ -->
+  <section class="view" id="view-list" data-view="list">
+    <header class="topbar">
+      <button class="monthnav" data-month="-1" data-i18n-aria="nav.prev">&lsaquo;</button>
+      <div class="monthlabel">
+        <span id="monthName">&mdash;</span>
+        <small id="monthSub"></small>
+      </div>
+      <button class="monthnav" data-month="1" data-i18n-aria="nav.next">&rsaquo;</button>
+    </header>
+
+    <div class="scroll">
+      <div class="hero">
+        <div class="hero-label" data-i18n="hero.total"></div>
+        <div class="hero-amount" id="monthTotal">0</div>
+        <div class="budget" id="budgetWrap" hidden>
+          <div class="budget-bar"><div class="budget-fill" id="budgetFill"></div></div>
+          <div class="budget-text" id="budgetText"></div>
+        </div>
+      </div>
+
+      <div id="listBody"></div>
+
+      <div class="empty" id="listEmpty" hidden>
+        <div class="empty-icon">&#129534;</div>
+        <p><span data-i18n="list.empty.title"></span><br><span data-i18n="list.empty.hint"></span></p>
+      </div>
+      <div class="bottom-pad"></div>
+    </div>
+  </section>
+
+  <!-- ============ VISTA: RESUMEN ============ -->
+  <section class="view" id="view-stats" data-view="stats" hidden>
+    <header class="topbar">
+      <button class="monthnav" data-month="-1" data-i18n-aria="nav.prev">&lsaquo;</button>
+      <div class="monthlabel"><span id="monthName2">&mdash;</span><small data-i18n="stats.title"></small></div>
+      <button class="monthnav" data-month="1" data-i18n-aria="nav.next">&rsaquo;</button>
+    </header>
+
+    <div class="scroll">
+      <div class="cards">
+        <div class="card"><span class="card-label" data-i18n="stats.month"></span><span class="card-value" id="stTotal">0</span></div>
+        <div class="card"><span class="card-label" data-i18n="stats.avg"></span><span class="card-value" id="stAvg">0</span></div>
+        <div class="card"><span class="card-label" data-i18n="stats.count"></span><span class="card-value" id="stCount">0</span></div>
+        <div class="card"><span class="card-label" data-i18n="stats.delta"></span><span class="card-value" id="stDelta">&mdash;</span></div>
+      </div>
+
+      <h2 class="section-title" data-i18n="stats.byCat"></h2>
+      <div id="catBreakdown" class="breakdown"></div>
+      <div class="empty small" id="statsEmpty" hidden><p data-i18n="stats.empty"></p></div>
+
+      <h2 class="section-title" data-i18n="stats.byPay"></h2>
+      <div id="payBreakdown" class="breakdown"></div>
+
+      <h2 class="section-title" data-i18n="stats.last6"></h2>
+      <div class="chart" id="chart"></div>
+
+      <div class="bottom-pad"></div>
+    </div>
+  </section>
+
+  <!-- ============ VISTA: AJUSTES ============ -->
+  <section class="view" id="view-settings" data-view="settings" hidden>
+    <header class="topbar"><div class="monthlabel"><span data-i18n="tab.settings"></span></div></header>
+    <div class="scroll">
+
+      <h2 class="section-title" data-i18n="set.general"></h2>
+      <div class="group">
+        <label class="row">
+          <span data-i18n="set.language"></span>
+          <select id="lang"></select>
+        </label>
+        <label class="row">
+          <span data-i18n="set.currency"></span>
+          <select id="currency">
+            <option value="EUR">&euro; Euro</option>
+            <option value="USD">$ US Dollar</option>
+            <option value="MXN">$ Peso mexicano</option>
+            <option value="COP">$ Peso colombiano</option>
+            <option value="ARS">$ Peso argentino</option>
+            <option value="CLP">$ Peso chileno</option>
+            <option value="PEN">S/ Sol</option>
+            <option value="GBP">&pound; Pound</option>
+          </select>
+        </label>
+        <label class="row">
+          <span data-i18n="set.budget"></span>
+          <input type="text" inputmode="decimal" id="budget" data-i18n-ph="set.budget.ph">
+        </label>
+      </div>
+
+      <h2 class="section-title" data-i18n="set.cats"></h2>
+      <div class="group" id="catEditor"></div>
+      <form class="group addcat" id="addCatForm">
+        <input type="text" id="newCatIcon" maxlength="2" placeholder="&#128512;">
+        <input type="text" id="newCatName" maxlength="20" data-i18n-ph="set.cat.ph">
+        <button type="submit" data-i18n="set.add"></button>
+      </form>
+
+      <h2 class="section-title" data-i18n="set.pays"></h2>
+      <div class="group" id="payEditor"></div>
+      <form class="group addcat" id="addPayForm">
+        <input type="text" id="newPayIcon" maxlength="2" placeholder="&#128179;">
+        <input type="text" id="newPayName" maxlength="24" data-i18n-ph="set.pay.ph">
+        <button type="submit" data-i18n="set.add"></button>
+      </form>
+      <p class="note" data-i18n="set.pays.hint"></p>
+
+      <h2 class="section-title" data-i18n="set.data"></h2>
+      <div class="group">
+        <button class="row action" id="exportJson"><span data-i18n="set.export.json"></span><span class="chev">JSON</span></button>
+        <button class="row action" id="exportCsv"><span data-i18n="set.export.csv"></span><span class="chev">CSV</span></button>
+        <button class="row action" id="importBtn"><span data-i18n="set.import"></span><span class="chev">&rsaquo;</span></button>
+        <button class="row action danger" id="wipeBtn"><span data-i18n="set.wipe"></span><span class="chev">&rsaquo;</span></button>
+      </div>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+
+      <p class="note" data-i18n="set.storage"></p>
+      <p class="note" id="usageNote"></p>
+      <p class="note version">Gastos &middot; v1.1.0</p>
+      <div class="bottom-pad"></div>
+    </div>
+  </section>
+
+  <!-- ============ BOTONES FLOTANTES + TAB BAR ============ -->
+  <button class="fab fab-cam" id="openCam" data-i18n-aria="fab.cam">&#128247;</button>
+  <button class="fab" id="openAdd" data-i18n-aria="fab.add">+</button>
+  <input type="file" id="photoFile" accept="image/*" hidden>
+
+  <nav class="tabbar">
+    <button class="tab is-active" data-go="list"><span class="tab-ico">&#129534;</span><span data-i18n="tab.list"></span></button>
+    <button class="tab" data-go="stats"><span class="tab-ico">&#128202;</span><span data-i18n="tab.stats"></span></button>
+    <button class="tab" data-go="settings"><span class="tab-ico">&#9881;&#65039;</span><span data-i18n="tab.settings"></span></button>
+  </nav>
+</div>
+
+<!-- ============ HOJA: AÑADIR / EDITAR ============ -->
+<div class="sheet-backdrop" id="backdrop" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true">
+  <div class="sheet-head">
+    <button class="sheet-btn" id="cancelBtn" data-i18n="sheet.cancel"></button>
+    <strong id="sheetTitle"></strong>
+    <button class="sheet-btn strong" id="saveBtn" data-i18n="sheet.save"></button>
+  </div>
+
+  <div class="amount-display">
+    <span class="amount-cur" id="amountCur">&euro;</span>
+    <span class="amount-val" id="amountVal">0</span>
+  </div>
+
+  <div class="picker-label" data-i18n="sheet.cat"></div>
+  <div class="cat-picker" id="catPicker"></div>
+
+  <div class="picker-label" data-i18n="sheet.pay"></div>
+  <div class="cat-picker" id="payPicker"></div>
+
+  <div class="meta-row">
+    <input type="date" id="dateInput">
+    <input type="text" id="noteInput" maxlength="60" data-i18n-ph="sheet.note.ph">
+  </div>
+
+  <div class="photo-row">
+    <button type="button" class="photo-add" id="attachPhoto"></button>
+    <div class="photo-thumb" id="photoThumb" hidden>
+      <img id="photoImg" data-i18n-alt="photo.alt">
+      <button type="button" class="photo-del" id="photoDel" data-i18n-aria="photo.remove">&times;</button>
+    </div>
+  </div>
+
+  <div class="keypad" id="keypad">
+    <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+    <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+    <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+    <button type="button" data-k="." id="decimalKey">,</button><button type="button" data-k="0">0</button><button type="button" data-k="del" class="del">&#9003;</button>
+  </div>
+
+  <button class="delete-expense" id="deleteBtn" hidden data-i18n="sheet.delete"></button>
+  <div class="sheet-pad"></div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox-close" id="lightboxClose" data-i18n-aria="photo.close">&times;</button>
+  <img id="lightboxImg" data-i18n-alt="photo.alt">
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

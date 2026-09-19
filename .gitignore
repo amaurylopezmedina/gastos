@@ -1,0 +1,6 @@
+# Paquetes de despliegue generados
+*.zip
+
+# Sistema
+Thumbs.db
+.DS_Store
