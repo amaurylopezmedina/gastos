@@ -1,5 +1,7 @@
 # Gastos
 
+**En vivo: <https://amaurylopezmedina.github.io/gastos/>**
+
 PWA para llevar los gastos personales desde el iPhone. Sin cuentas, sin servidor
 y sin conexión: los datos viven en el propio teléfono.
 
@@ -34,28 +36,27 @@ python -m http.server 5173
 
 Y abre `http://localhost:5173`.
 
-## Publicar
-
-iOS solo instala una PWA en la pantalla de inicio si se sirve por **HTTPS**.
-Cualquiera de estas opciones vale y es gratis:
-
-- **Netlify Drop**: arrastra la carpeta a <https://app.netlify.com/drop>.
-- **GitHub Pages**: sube la carpeta a un repositorio y activa Pages en Settings.
-- **Vercel**: `npx vercel --prod` dentro de la carpeta.
-
-No hay paso de compilación: se publican los archivos tal cual.
-
 ## Instalar en el iPhone
 
-1. Abre la URL en **Safari** (no sirve Chrome en iOS para instalar).
+1. Abre <https://amaurylopezmedina.github.io/gastos/> en **Safari**
+   (desde Chrome en iOS no se puede instalar).
 2. Botón **Compartir** → **Añadir a pantalla de inicio**.
 3. Ábrela desde el icono: se ve a pantalla completa y funciona sin conexión.
 
 ## Publicar cambios
 
-Al tocar cualquier archivo, sube el número de `CACHE` en `sw.js`
-(`gastos-v2` → `gastos-v3`). Sin eso, los iPhone que ya tengan la app instalada
-seguirán usando la versión guardada en caché.
+El sitio se sirve con GitHub Pages desde la rama `main`, sin compilación:
+
+```bash
+git add -A
+git commit -m "..."
+git push
+```
+
+En un minuto está publicado. **Antes de cada push que toque un archivo del
+front, sube el número de `CACHE` en `sw.js`** (`gastos-v2` → `gastos-v3`): sin
+eso, los iPhone que ya tengan la app instalada seguirán usando la copia
+guardada en caché y no verán los cambios.
 
 ## Dónde se guardan los datos
 
