@@ -4,3 +4,6 @@
 # Sistema
 Thumbs.db
 .DS_Store
+
+# Estados de cuenta de prueba: nunca al repositorio
+*.pdf

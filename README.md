@@ -14,6 +14,15 @@ y sin conexión: los datos viven en el propio teléfono.
   categoría y por forma de pago, y barras de los últimos 6 meses.
 - **Presupuesto mensual** opcional con barra de progreso.
 - **Español e inglés**, con el idioma del sistema detectado automáticamente.
+- **Importar el estado de cuenta del banco (PDF)**: lee los movimientos, propone
+  categoría para cada uno, deja fuera los pagos a la tarjeta y lo ya importado,
+  y crea la forma de pago con los últimos dígitos de la tarjeta. El PDF se lee
+  en el propio teléfono con `pdf.js` servido desde este sitio: **no se sube a
+  ningún servidor**.
+- **Deudas**: préstamos y tarjetas con balance, tasa anual, plazo y día de pago.
+  Calcula la cuota (sistema francés), el consolidado de lo que debes, cuánto
+  toca pagar al mes y un calendario de los próximos pagos. Al registrar una
+  cuota, la apunta como gasto y descuenta del balance el capital amortizado.
 - **Copias de seguridad**: exportar/importar JSON (incluye las fotos) y exportar CSV.
 
 ## Archivos
@@ -23,7 +32,10 @@ y sin conexión: los datos viven en el propio teléfono.
 | `index.html` | Estructura de las tres vistas y la hoja de alta/edición |
 | `styles.css` | Estilos, modo claro/oscuro y márgenes seguros del iPhone |
 | `app.js` | Lógica: estado, render, cámara, import/export |
+| `statement.js` | Lectura del estado de cuenta en PDF y pantalla de revisión |
+| `loans.js` | Deudas: cuotas, amortización, consolidado y calendario |
 | `i18n.js` | Traducciones (`es`, `en`) |
+| `vendor/` | `pdf.js`, servido desde el propio sitio (no hay CDN de terceros) |
 | `sw.js` | Service worker: caché del app shell para uso sin conexión |
 | `manifest.webmanifest` | Nombre, iconos y modo standalone |
 | `icons/` | Iconos PNG (incluido `apple-touch-icon.png`) |

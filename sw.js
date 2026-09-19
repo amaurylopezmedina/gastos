@@ -1,12 +1,14 @@
 /* Service worker: app shell en caché para que funcione sin conexión.
    Sube CACHE al publicar cambios y los clientes se actualizarán solos. */
-const CACHE = 'gastos-v7';
+const CACHE = 'gastos-v8';
 
 const SHELL = [
   './',
   './index.html',
   './styles.css',
   './i18n.js',
+  './statement.js',
+  './loans.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
@@ -14,6 +16,10 @@ const SHELL = [
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png'
 ];
+
+/* pdf.js (vendor/) pesa 1,5 MB y solo hace falta al importar un estado de
+   cuenta: no entra en el shell, se guarda en caché la primera vez que se usa
+   y a partir de ahí funciona también sin conexión. */
 
 self.addEventListener('install', (ev) => {
   ev.waitUntil(

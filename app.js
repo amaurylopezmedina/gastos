@@ -20,6 +20,7 @@
     { id: 'salud',    icon: '\u{1F48A}',         std: true },
     { id: 'ropa',     icon: '\u{1F455}',         std: true },
     { id: 'subs',     icon: '\u{1F4F1}',         std: true },
+    { id: 'banco',    icon: '\u{1F3E6}',         std: true },
     { id: 'otros',    icon: '\u{2728}',          std: true }
   ];
 
@@ -43,16 +44,25 @@
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) {}
     const base = {
-      v: 2, lang: null, currency: 'EUR', budget: 0,
-      cats: DEFAULT_CATS.slice(), pays: DEFAULT_PAYS.slice(), expenses: []
+      v: 3, lang: null, currency: 'EUR', budget: 0,
+      cats: DEFAULT_CATS.slice(), pays: DEFAULT_PAYS.slice(), expenses: [], debts: []
     };
     if (!saved || typeof saved !== 'object') return base;
+
+    // Las categorías estándar que se añaden en versiones nuevas (p. ej. Banco)
+    // tienen que aparecer también en los datos ya guardados.
+    const cats = Array.isArray(saved.cats) && saved.cats.length ? saved.cats.slice() : base.cats;
+    for (const def of DEFAULT_CATS) {
+      if (!cats.some((c) => c.id === def.id)) cats.push(def);
+    }
+
     return {
-      v: 2,
+      v: 3,
+      debts: Array.isArray(saved.debts) ? saved.debts : [],
       lang: typeof saved.lang === 'string' ? saved.lang : null,
       currency: typeof saved.currency === 'string' ? saved.currency : base.currency,
       budget: Number.isFinite(saved.budget) ? saved.budget : 0,
-      cats: Array.isArray(saved.cats) && saved.cats.length ? saved.cats : base.cats,
+      cats: cats,
       pays: Array.isArray(saved.pays) && saved.pays.length ? saved.pays : base.pays,
       expenses: Array.isArray(saved.expenses) ? saved.expenses.filter(validExpense) : []
     };
@@ -155,8 +165,23 @@
   // Todos los formateadores dependen del idioma: se rehacen al cambiarlo.
   let money, moneyShort, plain, monthFmt, monthShortFmt, dayFmt, decimalSep;
 
+  /* Cada moneda se escribe distinto en su país: en República Dominicana es
+     "RD$10,275.09" y no "10.275,09 DOP", que es lo que saldría con es-ES. */
+  const CURRENCY_LOCALE = {
+    DOP: 'es-DO', MXN: 'es-MX', COP: 'es-CO', ARS: 'es-AR',
+    CLP: 'es-CL', PEN: 'es-PE', EUR: 'es-ES', USD: 'en-US', GBP: 'en-GB'
+  };
+
+  function moneyLocale() {
+    const regional = CURRENCY_LOCALE[state.currency];
+    const lang = window.I18N.current();
+    // Solo se adopta el locale del país si habla el idioma elegido; si no,
+    // manda el idioma de la app.
+    return regional && regional.slice(0, 2) === lang ? regional : window.I18N.locale();
+  }
+
   function buildFormatters() {
-    const loc = window.I18N.locale();
+    const loc = moneyLocale();
     money = new Intl.NumberFormat(loc, { style: 'currency', currency: state.currency });
     moneyShort = new Intl.NumberFormat(loc, {
       style: 'currency', currency: state.currency,
@@ -462,6 +487,7 @@
     renderList();
     renderStats();
     renderSettings();
+    if (window.LOANS) window.LOANS.render();
   }
 
   /* ---------------- Hoja: añadir / editar ---------------- */
@@ -810,16 +836,94 @@
     toast(t('msg.wiped'));
   }
 
+  /* ---------------- Deudas ---------------- */
+
+  function parseNumber(text) {
+    const raw = String(text || '').trim().replace(/[^\d.,-]/g, '');
+    if (!raw) return 0;
+    // El separador decimal depende del idioma y de la moneda.
+    const normalized = decimalSep === ','
+      ? raw.replace(/\./g, '').replace(',', '.')
+      : raw.replace(/,/g, '');
+    const n = parseFloat(normalized);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  window.LOANS.init({
+    fmt: fmt,
+    toast: toast,
+    uid: uid,
+    save: save,
+    decimalSep: () => decimalSep,
+    parseNumber: parseNumber,
+    parseAmount: (text) => Math.round(parseNumber(text) * 100),
+    debts: () => state.debts,
+    removeDebt: (id) => { state.debts = state.debts.filter((d) => d.id !== id); save(); },
+    pays: () => state.pays,
+    payName: (p) => label(p, 'pay'),
+    debtCat: () => (state.cats.some((c) => c.id === 'banco') ? 'banco' : state.cats[0].id),
+    monthLabel: (d) => cap(monthFmt.format(d)),
+    addExpense: (row) => {
+      state.expenses.push({
+        id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
+        date: ymd(new Date()), note: row.note, photo: null, src: 'debt', ts: Date.now()
+      });
+      save();
+      renderList();
+      renderStats();
+    }
+  });
+
+  /* ---------------- Importar estado de cuenta ---------------- */
+
+  // statement.js no toca el estado directamente: pide y devuelve por aquí.
+  window.STATEMENT.init({
+    t: t,
+    fmt: fmt,
+    toast: toast,
+    currency: () => state.currency,
+    cats: () => state.cats,
+    pays: () => state.pays,
+    catName: (c) => label(c, 'cat'),
+    payName: (p) => label(p, 'pay'),
+    hasCat: (id) => state.cats.some((c) => c.id === id),
+    firstCat: () => state.cats[0].id,
+    signatures: () => new Set(state.expenses.filter((e) => e.sig).map((e) => e.sig)),
+    addPay: (name, icon) => {
+      const pay = { id: uid(), icon: icon, name: name };
+      state.pays.push(pay);
+      save();
+      return pay.id;
+    },
+    addImported: (list) => {
+      const now = Date.now();
+      for (const row of list) {
+        state.expenses.push({
+          id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
+          date: row.date, note: row.note, photo: null,
+          sig: row.sig, src: 'pdf', ts: now
+        });
+      }
+      save();
+      // Deja a la vista el mes del último movimiento importado.
+      const last = list.map((r) => r.date).sort().pop();
+      if (last) cursor = startOfMonth(parseDate(last));
+      renderAll();
+      toast(tn('imp.imported', list.length));
+    }
+  });
+
   /* ---------------- Navegación ---------------- */
 
   function go(name) {
     $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
     $$('.tab[data-go]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.go === name));
-    // Apuntar un gasto se hace desde la lista y desde el resumen; en ajustes
-    // los botones flotantes solo estorban.
-    const canAdd = name !== 'settings';
+    // Apuntar un gasto se hace desde la lista y desde el resumen; en deudas y
+    // ajustes los botones flotantes taparían los suyos.
+    const canAdd = name === 'list' || name === 'stats';
     $('#openAdd').hidden = !canAdd;
     $('#openCam').hidden = !canAdd;
+    if (name === 'debts') window.LOANS.render();
   }
 
   function shiftMonth(n) {
@@ -930,6 +1034,13 @@
     ev.target.value = '';
   });
   $('#wipeBtn').addEventListener('click', wipe);
+
+  $('#importPdf').addEventListener('click', () => $('#pdfFile').click());
+  $('#pdfFile').addEventListener('change', (ev) => {
+    const file = ev.target.files[0];
+    ev.target.value = '';
+    if (file) window.STATEMENT.open(file);
+  });
 
   // Evita el zoom por doble toque en iOS sin bloquear los toques normales.
   let lastTouch = 0;

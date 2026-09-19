@@ -81,6 +81,42 @@
     </div>
   </section>
 
+  <!-- ============ VISTA: DEUDAS ============ -->
+  <section class="view" id="view-debts" data-view="debts" hidden>
+    <header class="topbar"><div class="monthlabel"><span data-i18n="tab.debts"></span></div></header>
+    <div class="scroll">
+
+      <div class="hero">
+        <div class="hero-label" data-i18n="debt.total"></div>
+        <div class="hero-amount" id="debtTotal">0</div>
+      </div>
+
+      <div class="cards">
+        <div class="card"><span class="card-label" data-i18n="debt.monthly"></span><span class="card-value" id="debtMonthly">0</span></div>
+        <div class="card">
+          <span class="card-label" data-i18n="debt.next"></span>
+          <span class="card-value" id="debtNext">&mdash;</span>
+          <span class="card-sub" id="debtNextWhen"></span>
+        </div>
+      </div>
+
+      <h2 class="section-title" data-i18n="debt.list"></h2>
+      <div id="debtList"></div>
+
+      <div class="empty" id="debtEmpty" hidden>
+        <div class="empty-icon">&#127974;</div>
+        <p><span data-i18n="debt.empty"></span></p>
+      </div>
+
+      <button class="add-debt" id="debtAdd"><span>+</span> <span data-i18n="debt.add"></span></button>
+
+      <h2 class="section-title" id="debtCalendarTitle" data-i18n="debt.calendar" hidden></h2>
+      <div id="debtCalendar" class="calendar"></div>
+
+      <div class="bottom-pad"></div>
+    </div>
+  </section>
+
   <!-- ============ VISTA: AJUSTES ============ -->
   <section class="view" id="view-settings" data-view="settings" hidden>
     <header class="topbar"><div class="monthlabel"><span data-i18n="tab.settings"></span></div></header>
@@ -95,6 +131,7 @@
         <label class="row">
           <span data-i18n="set.currency"></span>
           <select id="currency">
+            <option value="DOP">RD$ Peso dominicano</option>
             <option value="EUR">&euro; Euro</option>
             <option value="USD">$ US Dollar</option>
             <option value="MXN">$ Peso mexicano</option>
@@ -130,13 +167,16 @@
 
       <h2 class="section-title" data-i18n="set.data"></h2>
       <div class="group">
+        <button class="row action" id="importPdf"><span data-i18n="imp.button"></span><span class="chev">PDF</span></button>
         <button class="row action" id="exportJson"><span data-i18n="set.export.json"></span><span class="chev">JSON</span></button>
         <button class="row action" id="exportCsv"><span data-i18n="set.export.csv"></span><span class="chev">CSV</span></button>
         <button class="row action" id="importBtn"><span data-i18n="set.import"></span><span class="chev">&rsaquo;</span></button>
         <button class="row action danger" id="wipeBtn"><span data-i18n="set.wipe"></span><span class="chev">&rsaquo;</span></button>
       </div>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+      <input type="file" id="pdfFile" accept="application/pdf,.pdf" hidden>
 
+      <p class="note" data-i18n="imp.hint"></p>
       <p class="note" data-i18n="set.storage"></p>
       <p class="note" id="usageNote"></p>
       <p class="note version">Gastos &middot; v1.1.0</p>
@@ -152,6 +192,7 @@
   <nav class="tabbar">
     <button class="tab" data-go="list"><span class="tab-ico">&#129534;</span><span data-i18n="tab.list"></span></button>
     <button class="tab is-active" data-go="stats"><span class="tab-ico">&#128202;</span><span data-i18n="tab.stats"></span></button>
+    <button class="tab" data-go="debts"><span class="tab-ico">&#127974;</span><span data-i18n="tab.debts"></span></button>
     <button class="tab" data-go="settings"><span class="tab-ico">&#9881;&#65039;</span><span data-i18n="tab.settings"></span></button>
   </nav>
 </div>
@@ -200,6 +241,79 @@
   <div class="sheet-pad"></div>
 </div>
 
+<!-- ============ HOJA: DEUDA ============ -->
+<div class="sheet-backdrop" id="debtBackdrop" hidden></div>
+<div class="sheet" id="debtSheet" hidden role="dialog" aria-modal="true">
+  <div class="sheet-head">
+    <button class="sheet-btn" id="debtCancel" data-i18n="sheet.cancel"></button>
+    <strong id="debtSheetTitle"></strong>
+    <button class="sheet-btn strong" id="debtSave" data-i18n="sheet.save"></button>
+  </div>
+
+  <div class="form">
+    <label class="field"><span data-i18n="debt.name"></span>
+      <input type="text" id="dName" maxlength="30" data-i18n-ph="debt.name.ph"></label>
+
+    <label class="field"><span data-i18n="debt.kind"></span>
+      <select id="dKind">
+        <option value="loan" data-i18n="debt.kind.loan"></option>
+        <option value="card" data-i18n="debt.kind.card"></option>
+      </select></label>
+
+    <label class="field"><span data-i18n="debt.principal"></span>
+      <input type="text" inputmode="decimal" id="dPrincipal" placeholder="0"></label>
+
+    <label class="field"><span data-i18n="debt.balance"></span>
+      <input type="text" inputmode="decimal" id="dBalance" placeholder="0"></label>
+
+    <label class="field"><span data-i18n="debt.rate"></span>
+      <input type="text" inputmode="decimal" id="dRate" placeholder="0"></label>
+
+    <label class="field"><span data-i18n="debt.term"></span>
+      <input type="number" inputmode="numeric" id="dTerm" min="1" max="600" placeholder="0"></label>
+
+    <label class="field"><span data-i18n="debt.payment"></span>
+      <span class="field-calc">
+        <input type="text" inputmode="decimal" id="dPayment" placeholder="0">
+        <button type="button" id="dCalc" data-i18n="debt.calc"></button>
+      </span></label>
+
+    <label class="field"><span data-i18n="debt.dueDay"></span>
+      <input type="number" inputmode="numeric" id="dDueDay" min="1" max="31" value="1"></label>
+
+    <label class="field"><span data-i18n="debt.payWith"></span>
+      <select id="dPay"></select></label>
+  </div>
+
+  <button class="delete-expense" id="debtDelete" hidden data-i18n="debt.delete"></button>
+  <div class="sheet-pad"></div>
+</div>
+
+<!-- ============ HOJA: IMPORTAR ESTADO DE CUENTA ============ -->
+<div class="sheet-backdrop" id="impBackdrop" hidden></div>
+<div class="sheet sheet-full" id="impSheet" hidden role="dialog" aria-modal="true">
+  <div class="sheet-head">
+    <button class="sheet-btn" id="impCancel" data-i18n="sheet.cancel"></button>
+    <strong data-i18n="imp.title"></strong>
+    <button class="sheet-btn strong" id="impSave"></button>
+  </div>
+
+  <div class="imp-bar">
+    <select id="impPay" aria-label="Forma de pago"></select>
+    <button type="button" id="impAll" data-i18n="imp.toggleAll"></button>
+  </div>
+
+  <div class="imp-summary" id="impSummary"></div>
+
+  <div class="imp-rate" id="impRate" hidden>
+    <span id="impRateLabel"></span>
+    <input type="text" inputmode="decimal" id="impRateInput" placeholder="0,00">
+  </div>
+
+  <div class="imp-list" id="impList"></div>
+  <div class="sheet-pad"></div>
+</div>
+
 <div class="lightbox" id="lightbox" hidden>
   <button class="lightbox-close" id="lightboxClose" data-i18n-aria="photo.close">&times;</button>
   <img id="lightboxImg" data-i18n-alt="photo.alt">
@@ -208,6 +322,8 @@
 <div class="toast" id="toast" hidden></div>
 
 <script src="i18n.js"></script>
+<script src="statement.js"></script>
+<script src="loans.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

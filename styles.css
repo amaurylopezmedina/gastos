@@ -391,6 +391,138 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .sheet-pad { height: calc(var(--safe-bottom) + 18px); }
 
+/* ---------- Deudas ---------- */
+.card-sub { font-size: 11px; color: var(--text-dim); }
+
+.debt-card {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow);
+}
+.debt-card.done { opacity: .6; }
+
+.debt-head { display: flex; align-items: center; gap: 10px; }
+.debt-ico { font-size: 20px; }
+.debt-name { flex: 1; min-width: 0; text-align: left; font-size: 16px; font-weight: 600; }
+.debt-balance { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.debt-bar { height: 6px; border-radius: 99px; background: var(--line); margin: 10px 0 8px; overflow: hidden; }
+.debt-bar i { display: block; height: 100%; border-radius: 99px; background: var(--good); }
+
+.debt-facts { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+.debt-actions { margin-top: 12px; }
+.debt-pay {
+  width: 100%; padding: 11px; border-radius: 10px;
+  background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+}
+.debt-pay.is-paid { background: var(--line); color: var(--text-dim); font-weight: 400; }
+.debt-done { font-size: 13px; color: var(--good); }
+
+.add-debt {
+  width: 100%; margin-top: 4px; padding: 13px;
+  border-radius: var(--radius); border: 1px dashed var(--line);
+  color: var(--accent); font-size: 15px;
+}
+.add-debt:active { background: var(--surface); }
+
+.calendar { background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.cal-month {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 10px 14px; background: var(--surface-2);
+  font-size: 12px; color: var(--text-dim);
+}
+.cal-month b { font-variant-numeric: tabular-nums; color: var(--text); }
+.cal-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border-bottom: 1px solid var(--line);
+}
+.cal-row:last-child { border-bottom: 0; }
+.cal-day {
+  flex: none; width: 30px; height: 30px; border-radius: 9px;
+  background: var(--line); display: grid; place-items: center;
+  font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.cal-name { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-amt { font-size: 14px; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Formulario de deuda */
+.form { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+.field {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface); border-radius: 11px; padding: 11px 13px;
+  font-size: 15px;
+}
+.field > span:first-child { color: var(--text-dim); flex: none; }
+.field input, .field select {
+  flex: 1; min-width: 0; text-align: right;
+  background: none; border: 0; outline: none; font-size: 16px;
+  -webkit-appearance: none; appearance: none;
+}
+.field-calc { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.field-calc button { color: var(--accent); font-size: 13px; flex: none; }
+
+/* ---------- Importar estado de cuenta ---------- */
+.sheet-full { max-height: 100%; height: 100%; border-radius: 0; padding-top: var(--safe-top); }
+
+.imp-bar { display: flex; gap: 8px; align-items: center; padding: 6px 0 10px; }
+.imp-bar select {
+  flex: 1; min-width: 0;
+  background: var(--surface); border: 0; border-radius: 10px;
+  padding: 11px; font-size: 15px;
+  -webkit-appearance: none; appearance: none;
+}
+.imp-bar button {
+  flex: none; color: var(--accent); font-size: 15px; padding: 11px 4px;
+}
+
+.imp-summary { font-size: 13px; color: var(--text-dim); padding-bottom: 10px; }
+
+.imp-rate {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border-radius: 11px;
+  padding: 10px 12px; margin-bottom: 12px;
+  font-size: 14px; color: var(--text-dim);
+}
+.imp-rate input {
+  flex: 1; min-width: 0; text-align: right;
+  background: none; border: 0; outline: none;
+  font-size: 16px; color: var(--text);
+}
+
+.imp-list { padding-bottom: 8px; }
+.imp-section {
+  font-size: 12px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 16px 2px 6px;
+}
+.imp-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border-radius: 11px;
+  padding: 10px 12px; margin-bottom: 6px;
+  opacity: .5;
+}
+.imp-row.on { opacity: 1; }
+.imp-check {
+  flex: none; width: 26px; height: 26px; border-radius: 8px;
+  border: 1.5px solid var(--text-dim);
+  color: #fff; font-size: 15px; line-height: 1;
+  display: grid; place-items: center;
+}
+.imp-row.on .imp-check { background: var(--accent); border-color: var(--accent); }
+.imp-main { flex: 1; min-width: 0; }
+.imp-desc {
+  font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.imp-meta { font-size: 11px; color: var(--text-dim); }
+.imp-right { flex: none; text-align: right; display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+.imp-amt { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.imp-cat {
+  font-size: 11px; color: var(--text-dim);
+  background: none; border: 0; padding: 0; text-align: right;
+  -webkit-appearance: none; appearance: none; max-width: 110px;
+}
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed; z-index: 20;
