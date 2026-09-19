@@ -951,7 +951,31 @@
     navigator.storage.persisted().then((ok) => { if (!ok) navigator.storage.persist(); });
   }
 
+  /* Actualización automática. Sin esto, una versión nueva solo llega cuando el
+     usuario cierra la app del todo y la vuelve a abrir (dos veces), y en un
+     iPhone con la PWA instalada eso no es evidente. */
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    // Si ya había un service worker al cargar, esta página es una versión
+    // anterior: cuando el nuevo tome el control, hay que recargar. En la
+    // primera instalación no, o recargaría nada más entrar.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloading = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // Nunca en mitad de un gasto a medio escribir.
+      if (!hadController || reloading || draft) return;
+      reloading = true;
+      location.reload();
+    });
+
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        const check = () => {
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        };
+        check();                                              // al abrir
+        document.addEventListener('visibilitychange', check); // al volver a primer plano
+      }).catch(() => {});
+    });
   }
 })();

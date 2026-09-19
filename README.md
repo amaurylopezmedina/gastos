@@ -54,9 +54,13 @@ git push
 ```
 
 En un minuto está publicado. **Antes de cada push que toque un archivo del
-front, sube el número de `CACHE` en `sw.js`** (`gastos-v2` → `gastos-v3`): sin
-eso, los iPhone que ya tengan la app instalada seguirán usando la copia
-guardada en caché y no verán los cambios.
+front, sube el número de `CACHE` en `sw.js`** (`gastos-v7` → `gastos-v8`): es
+lo que le dice al service worker que hay una versión nueva.
+
+Los dispositivos con la app instalada se actualizan solos: al abrirla y cada
+vez que vuelve a primer plano, busca una versión nueva y, si la encuentra, la
+instala y recarga (nunca con un gasto a medio escribir). No hace falta cerrar
+la app ni reinstalarla.
 
 ## Dónde se guardan los datos
 
