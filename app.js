@@ -815,10 +815,11 @@
   function go(name) {
     $$('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
     $$('.tab[data-go]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.go === name));
-    // Los botones flotantes taparían el gráfico y los ajustes: solo en la lista.
-    const onList = name === 'list';
-    $('#openAdd').hidden = !onList;
-    $('#openCam').hidden = !onList;
+    // Apuntar un gasto se hace desde la lista y desde el resumen; en ajustes
+    // los botones flotantes solo estorban.
+    const canAdd = name !== 'settings';
+    $('#openAdd').hidden = !canAdd;
+    $('#openCam').hidden = !canAdd;
   }
 
   function shiftMonth(n) {
@@ -943,7 +944,7 @@
   window.I18N.set(window.I18N.detect(state.lang));
   window.I18N.apply();
   renderAll();
-  go('list');
+  go('stats');   // el resumen del mes es lo primero que se ve al abrir
 
   // Pide almacenamiento persistente: reduce el riesgo de que iOS purgue los datos.
   if (navigator.storage && navigator.storage.persist) {

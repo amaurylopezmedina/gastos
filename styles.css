@@ -87,6 +87,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   padding: 0 16px;
 }
 .bottom-pad { height: calc(var(--tabbar-h) + var(--safe-bottom) + 24px); }
+/* En el resumen, el botón flotante llega más arriba: deja sitio para que el
+   gráfico se pueda desplazar por encima de él. */
+#view-stats .bottom-pad { height: calc(var(--tabbar-h) + var(--safe-bottom) + 120px); }
 
 /* ---------- Hero total ---------- */
 .hero { padding: 26px 4px 20px; text-align: center; }

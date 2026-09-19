@@ -21,7 +21,7 @@
 <div class="app">
 
   <!-- ============ VISTA: GASTOS ============ -->
-  <section class="view" id="view-list" data-view="list">
+  <section class="view" id="view-list" data-view="list" hidden>
     <header class="topbar">
       <button class="monthnav" data-month="-1" data-i18n-aria="nav.prev">&lsaquo;</button>
       <div class="monthlabel">
@@ -52,7 +52,7 @@
   </section>
 
   <!-- ============ VISTA: RESUMEN ============ -->
-  <section class="view" id="view-stats" data-view="stats" hidden>
+  <section class="view" id="view-stats" data-view="stats">
     <header class="topbar">
       <button class="monthnav" data-month="-1" data-i18n-aria="nav.prev">&lsaquo;</button>
       <div class="monthlabel"><span id="monthName2">&mdash;</span><small data-i18n="stats.title"></small></div>
@@ -150,8 +150,8 @@
   <input type="file" id="photoFile" accept="image/*" hidden>
 
   <nav class="tabbar">
-    <button class="tab is-active" data-go="list"><span class="tab-ico">&#129534;</span><span data-i18n="tab.list"></span></button>
-    <button class="tab" data-go="stats"><span class="tab-ico">&#128202;</span><span data-i18n="tab.stats"></span></button>
+    <button class="tab" data-go="list"><span class="tab-ico">&#129534;</span><span data-i18n="tab.list"></span></button>
+    <button class="tab is-active" data-go="stats"><span class="tab-ico">&#128202;</span><span data-i18n="tab.stats"></span></button>
     <button class="tab" data-go="settings"><span class="tab-ico">&#9881;&#65039;</span><span data-i18n="tab.settings"></span></button>
   </nav>
 </div>
