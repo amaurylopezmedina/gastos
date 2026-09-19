@@ -32,6 +32,11 @@
 /* ---------- Base ---------- */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* El display que da el navegador a [hidden] lo pisa cualquier regla de autor
+   (.lightbox { display: grid }, .fab { display: grid }…). Sin esto, un
+   elemento "oculto" sigue en pantalla y se traga los toques. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -250,7 +255,6 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
   transition: transform .12s ease;
 }
 .fab:active { transform: scale(.92); }
-.fab[hidden] { display: none; }
 
 .fab-cam {
   bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 86px);
@@ -355,6 +359,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .lightbox {
   position: fixed; inset: 0; z-index: 30;
   background: rgba(0, 0, 0, .94);
+  /* cursor: pointer hace que Safari en iOS dispare el click en un div: sin
+     él, tocar el fondo no cerraría el visor. */
+  cursor: pointer;
   display: grid; place-items: center;
   padding: calc(var(--safe-top) + 16px) 12px calc(var(--safe-bottom) + 16px);
   animation: fade .2s ease;
