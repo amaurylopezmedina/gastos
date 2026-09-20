@@ -942,8 +942,11 @@
     currency: () => state.currency,
     cats: () => state.cats,
     pays: () => state.pays,
-    catName: (c) => label(c, 'cat'),
+    catName: (c) => (c ? label(c, 'cat') : t('cat.none')),
+    catById: catById,
     payName: (p) => label(p, 'pay'),
+    monthLabel: (d) => cap(monthFmt.format(d)),
+    parseNumber: parseNumber,
     hasCat: (id) => state.cats.some((c) => c.id === id),
     firstCat: () => state.cats[0].id,
     signatures: () => new Set(state.expenses.filter((e) => e.sig).map((e) => e.sig)),
@@ -953,24 +956,30 @@
       save();
       return pay.id;
     },
-    addImported: (list, fileName) => {
+    addImported: (list) => {
       const now = Date.now();
-      // Cada carga queda identificada para poder deshacerla entera después.
-      const batch = 'b_' + uid();
+      // Un lote por archivo, aunque se hayan abierto varios de golpe: así se
+      // puede deshacer el estado de un mes concreto sin tocar los demás.
+      const batches = new Map();
       for (const row of list) {
+        const file = row.file || 'PDF';
+        if (!batches.has(file)) batches.set(file, 'b_' + uid());
         state.expenses.push({
           id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
           date: row.date, note: row.note, photo: null,
-          sig: row.sig, src: 'pdf', batch: batch, ts: now
+          sig: row.sig, src: 'pdf', batch: batches.get(file), ts: now
         });
       }
-      state.imports.push({
-        id: batch,
-        file: fileName || 'PDF',
-        when: ymd(new Date()),
-        count: list.length,
-        cents: list.reduce((s, r) => s + r.cents, 0)
-      });
+      for (const [file, batch] of batches) {
+        const mine = list.filter((r) => (r.file || 'PDF') === file);
+        state.imports.push({
+          id: batch,
+          file: file,
+          when: ymd(new Date()),
+          count: mine.length,
+          cents: mine.reduce((s, r) => s + r.cents, 0)
+        });
+      }
       save();
       // Deja a la vista el mes del último movimiento importado.
       const last = list.map((r) => r.date).sort().pop();
@@ -1105,9 +1114,9 @@
 
   $('#importPdf').addEventListener('click', () => $('#pdfFile').click());
   $('#pdfFile').addEventListener('change', (ev) => {
-    const file = ev.target.files[0];
+    const files = ev.target.files;
     ev.target.value = '';
-    if (file) window.STATEMENT.open(file);
+    if (files && files.length) window.STATEMENT.open(files);
   });
 
   // Evita el zoom por doble toque en iOS sin bloquear los toques normales.

@@ -14,11 +14,13 @@ y sin conexión: los datos viven en el propio teléfono.
   categoría y por forma de pago, y barras de los últimos 6 meses.
 - **Presupuesto mensual** opcional con barra de progreso.
 - **Español e inglés**, con el idioma del sistema detectado automáticamente.
-- **Importar el estado de cuenta del banco (PDF)**: lee los movimientos, propone
-  categoría para cada uno, deja fuera los pagos a la tarjeta y lo ya importado,
-  y crea la forma de pago con los últimos dígitos de la tarjeta. El PDF se lee
-  en el propio teléfono con `pdf.js` servido desde este sitio: **no se sube a
-  ningún servidor**.
+- **Importar estados de cuenta del banco (PDF)**, varios meses de una vez para
+  montar el historial. Lee los movimientos, propone categoría para cada uno,
+  deja fuera los pagos a la tarjeta y lo que ya esté apuntado, y crea la forma
+  de pago con los últimos dígitos de la tarjeta. Cada estado queda como una
+  carga aparte, que se puede deshacer entera. El PDF se lee en el propio
+  teléfono con `pdf.js` servido desde este sitio: **no se sube a ningún
+  servidor**.
 - **Deudas**: préstamos y tarjetas con balance, tasa anual, plazo y día de pago.
   Calcula la cuota (sistema francés), el consolidado de lo que debes, cuánto
   toca pagar al mes y un calendario de los próximos pagos. Al registrar una
@@ -73,6 +75,18 @@ Los dispositivos con la app instalada se actualizan solos: al abrirla y cada
 vez que vuelve a primer plano, busca una versión nueva y, si la encuentra, la
 instala y recarga (nunca con un gasto a medio escribir). No hace falta cerrar
 la app ni reinstalarla.
+
+## Cómo se evita duplicar al importar varios estados
+
+Cada movimiento se identifica por fecha, importe y concepto. Repetirse
+significa cosas distintas según dónde pase, así que se tratan aparte:
+
+- **Dentro de un mismo estado**: el banco lista dos cobros que ocurrieron de
+  verdad dos veces ese día. Se importan los dos (la firma lleva el número de
+  repetición).
+- **Entre dos estados**: es el mismo movimiento apareciendo en ambos, porque
+  los cortes de mes se solapan. Solo entra una vez; el segundo sale marcado
+  como *ya importado*.
 
 ## Dónde se guardan los datos
 

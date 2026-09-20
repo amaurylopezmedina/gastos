@@ -3,20 +3,23 @@
    Todo ocurre en el teléfono: el PDF se lee con pdf.js servido desde este
    mismo sitio (carpeta vendor/), nunca se sube a ningún servidor.
 
-   El texto plano de un estado de cuenta no distingue un consumo de un pago,
-   porque ambos son "una fecha, un concepto y un número". Lo que sí los
-   distingue es la COLUMNA: pdf.js da la posición de cada texto, y los
-   créditos caen más a la derecha que los consumos. */
+   Se pueden abrir varios estados de una vez para montar el historial de una
+   tarjeta. Dos cuidados que eso obliga:
+   - Estados consecutivos repiten movimientos del cambio de mes, así que la
+     deduplicación mira también lo que ya trae la propia tanda.
+   - Un mismo comercio puede cobrar dos veces el mismo día el mismo importe:
+     son dos gastos reales, no un duplicado, y la firma lleva el número de
+     repetición para distinguirlos. */
 window.STATEMENT = (() => {
   'use strict';
 
   let host = null;          // puente con app.js
-  let parsed = [];          // movimientos detectados
+  let parsed = [];          // movimientos de todos los archivos abiertos
   let rate = 0;             // tasa de cambio para la moneda extranjera
-  let fileName = '';        // nombre del PDF, para poder deshacer la carga
 
   const $ = (s) => document.querySelector(s);
   const t = (k, v) => window.I18N.t(k, v);
+  const tn = (k, n, v) => window.I18N.tn(k, n, v);
 
   /* ---------------- Carga perezosa de pdf.js ---------------- */
 
@@ -45,9 +48,7 @@ window.STATEMENT = (() => {
 
   function parseAmount(raw) {
     const s = raw.replace(/[^\d.,-]/g, '');
-    const lastComma = s.lastIndexOf(',');
-    const lastDot = s.lastIndexOf('.');
-    const dec = Math.max(lastComma, lastDot);
+    const dec = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
     // Dos dígitos tras el último separador = parte decimal (da igual si el
     // banco escribe 10,275.09 o 10.275,09).
     if (dec >= 0 && s.length - dec - 1 === 2) {
@@ -58,10 +59,7 @@ window.STATEMENT = (() => {
     return Number.isFinite(n) ? Math.round(n * 100) : NaN;
   }
 
-  function isoDate(m) {
-    const [, d, mo, y] = m;
-    return y + '-' + mo + '-' + d;
-  }
+  const isoDate = (m) => m[3] + '-' + m[2] + '-' + m[1];
 
   // Detecta la moneda que anuncia una cabecera de sección.
   function sectionCurrency(text) {
@@ -116,7 +114,7 @@ window.STATEMENT = (() => {
           if (d) { dates.push(d); continue; }
           if (AMOUNT_RE.test(it.s) && /[.,]\d{2}$/.test(it.s)) {
             const cents = parseAmount(it.s);
-            if (Number.isFinite(cents)) { amounts.push({ cents, right: it.x + it.w, raw: it.s }); continue; }
+            if (Number.isFinite(cents)) { amounts.push({ cents: cents, right: it.x + it.w }); continue; }
           }
           if (/^\d{3,4}$/.test(it.s)) continue;     // últimos dígitos de la tarjeta
           words.push(it.s);
@@ -148,8 +146,7 @@ window.STATEMENT = (() => {
 
     // Últimos dígitos de la tarjeta, para nombrar la forma de pago.
     let card = null;
-    const firstPage = await doc.getPage(1);
-    const head = (await firstPage.getTextContent()).items.map((i) => i.str).join(' ');
+    const head = (await (await doc.getPage(1)).getTextContent()).items.map((i) => i.str).join(' ');
     const m = head.match(/(\d{4})\s*[*x·•]{2,}\s*(\d{4})|[*x·•]{4,}\s*(\d{4})/i);
     if (m) card = m[2] || m[3];
 
@@ -158,8 +155,6 @@ window.STATEMENT = (() => {
 
   /* ---------------- Categoría sugerida ---------------- */
 
-  // Se busca por palabras del comercio. Lo que no encaje queda en "Otros" y
-  // el usuario lo corrige en la lista antes de importar.
   const RULES = [
     ['super',    /JUMBO|SIRENA|SUPERMERCAD|COOPCIBAO|PLAZA LAMA|BRAVO|NACIONAL|OLE|MERCADO|GROCER|WALMART|CARREFOUR|MERCADONA/],
     ['comida',   /BURGER|PIZZA|HELADO|RESTAUR|CAFE|COFFEE|MCDONALD|WENDY|KFC|DOMINO|SUBWAY|TERIYAKI|SUSHI|BON |BOMBAZO|PANADER|REPOSTER|DELI|BAR |TACO|FOOD/],
@@ -168,7 +163,7 @@ window.STATEMENT = (() => {
     ['salud',    /FARMACIA|CAROL|GBC|MEDIC|CLINIC|HOSPITAL|LABORATORI|DENTAL|OPTIC|SALUD|PHARMA/],
     ['ropa',     /TIENDA|ZARA|BOUTIQUE|SHOES|CALZADO|ROPA|MODA|FASHION|PAYLESS|ADIDAS|NIKE/],
     ['subs',     /NETFLIX|SPOTIFY|ANTHROPIC|OPENAI|CLAUDE|APPLE\.COM|ITUNES|GOOGLE|MICROSOFT|ADOBE|PRIME|DISNEY|HBO|YOUTUBE|DROPBOX|ICLOUD|SUBSCRIPTION|SUB /],
-    ['banco',   /COMISION|INTERES|INTERES|AVANCE|MORA|CARGO POR|SEGURO|AHORRO|IMPUESTO|ITBIS|0\.15|CUOTA MANEJO|MANTENIMIENTO/]
+    ['banco',    /COMISION|INTERES|AVANCE|MORA|CARGO POR|SEGURO|AHORRO|IMPUESTO|ITBIS|CUOTA MANEJO|MANTENIMIENTO/]
   ];
 
   function suggestCat(desc) {
@@ -179,51 +174,94 @@ window.STATEMENT = (() => {
     return host.hasCat('otros') ? 'otros' : host.firstCat();
   }
 
-  /* ---------------- Firma para no duplicar ---------------- */
+  /* ---------------- Firmas ---------------- */
 
-  const signature = (row) => row.date + '|' + row.cents + '|' + row.desc.slice(0, 24).toUpperCase();
+  const baseSig = (row) => row.date + '|' + row.cents + '|' + row.desc.slice(0, 24).toUpperCase();
 
-  /* ---------------- Interfaz de revisión ---------------- */
+  // La primera vez va sin sufijo, para seguir reconociendo lo importado antes
+  // de que existiera el contador.
+  const numbered = (base, n) => (n <= 1 ? base : base + '#' + n);
 
-  async function open(file) {
-    fileName = (file && file.name) || 'PDF';
-    host.toast(t('imp.reading'));
-    let result;
-    try {
-      result = await readPdf(file);
-    } catch (err) {
-      return host.toast(t('imp.failed'));
-    }
-    if (!result.rows.length) return host.toast(t('imp.nothing'));
+  /* ---------------- Abrir uno o varios PDF ---------------- */
 
-    const known = host.signatures();
-    parsed = result.rows.map((r) => {
-      const sig = signature(r);
-      const dup = known.has(sig);
-      return {
-        date: r.date,
-        desc: r.desc,
-        cents: r.cents,
-        currency: r.currency || host.currency(),
-        credit: Boolean(r.credit),
-        dup: dup,
-        sig: sig,
-        cat: suggestCat(r.desc),
-        // Un pago a la tarjeta no es un gasto, y un duplicado ya está apuntado.
-        on: !r.credit && !dup
-      };
-    });
+  let cardSeen = null;
 
+  async function open(fileList) {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
+
+    parsed = [];
     rate = 0;
-    prepareCard(result.card);
-    render();
+    cardSeen = null;
+
+    /* Repetir una firma significa cosas distintas según dónde pase:
+       - dentro del mismo estado, el banco lista dos cobros que de verdad
+         ocurrieron dos veces ese día, y hay que importar los dos;
+       - entre dos estados, es el mismo movimiento apareciendo en ambos,
+         porque los cortes de mes se solapan, y solo va una vez.
+       Por eso el número de repetición se cuenta por archivo, y lo visto se
+       acumula entre archivos para descartar el solapamiento. */
+    const known = new Set(host.signatures());
+
+    let read = 0;
+    let failed = 0;
+    for (const file of files) {
+      host.toast(files.length > 1
+        ? t('imp.readingOne', { n: ++read, total: files.length })
+        : t('imp.reading'));
+
+      let result;
+      try {
+        result = await readPdf(file);
+      } catch (_) {
+        failed++;
+        continue;
+      }
+      if (result.card && !cardSeen) cardSeen = result.card;
+
+      const inThisFile = new Map();
+      for (const row of result.rows) {
+        const base = baseSig(row);
+        const n = (inThisFile.get(base) || 0) + 1;
+        inThisFile.set(base, n);
+        const sig = numbered(base, n);
+        const dup = known.has(sig);
+        known.add(sig);
+
+        parsed.push({
+          file: file.name || 'PDF',
+          date: row.date,
+          desc: row.desc,
+          cents: row.cents,
+          currency: row.currency || host.currency(),
+          credit: Boolean(row.credit),
+          dup: dup,
+          sig: sig,
+          cat: suggestCat(row.desc),
+          // Un pago a la tarjeta no es un gasto, y un duplicado ya está apuntado.
+          on: !row.credit && !dup
+        });
+      }
+    }
+
+    if (!parsed.length) {
+      return host.toast(t(failed ? 'imp.failed' : 'imp.nothing'));
+    }
+    if (failed) host.toast(tn('imp.someFailed', failed));
+
+    // Orden cronológico: el historial se lee de más antiguo a más reciente.
+    parsed.sort((a, b) => a.date.localeCompare(b.date) || a.desc.localeCompare(b.desc));
+
+    prepareCard(cardSeen);
+    buildList();
+    refreshSummary();
     $('#impSheet').hidden = false;
     $('#impBackdrop').hidden = false;
+    $('#impSheet').scrollTop = 0;
   }
 
   // Si el estado de cuenta trae los últimos dígitos, se propone una forma de
   // pago con ese nombre para no mezclarlo con el resto.
-  let payId = null;
   function prepareCard(card) {
     const sel = $('#impPay');
     sel.textContent = '';
@@ -235,87 +273,81 @@ window.STATEMENT = (() => {
     }
     const proposed = card ? t('imp.cardName', { n: card }) : null;
     if (proposed) {
-      const existing = host.pays().find((p) => p.name === proposed);
+      const existing = host.pays().find((p) => host.payName(p) === proposed);
       if (existing) {
-        payId = existing.id;
-      } else {
-        const o = document.createElement('option');
-        o.value = '__new__';
-        o.textContent = proposed;
-        sel.insertBefore(o, sel.firstChild);
-        payId = '__new__';
-        sel.dataset.newName = proposed;
+        sel.value = existing.id;
+        return;
       }
-    } else {
-      payId = host.pays()[0].id;
+      const o = document.createElement('option');
+      o.value = '__new__';
+      o.textContent = proposed;
+      sel.insertBefore(o, sel.firstChild);
+      sel.dataset.newName = proposed;
+      sel.value = '__new__';
+      return;
     }
-    sel.value = payId;
+    sel.value = host.pays()[0].id;
   }
 
-  function foreign() {
-    return parsed.filter((r) => r.currency !== host.currency());
-  }
+  /* ---------------- Interfaz de revisión ---------------- */
 
-  function convert(row) {
+  const convert = (row) => {
     if (row.currency === host.currency()) return row.cents;
-    if (!rate) return null;
-    return Math.round(row.cents * rate);
-  }
+    return rate ? Math.round(row.cents * rate) : null;
+  };
 
-  function selected() {
-    return parsed.filter((r) => r.on && convert(r) !== null);
-  }
+  const usable = (row) => convert(row) !== null;
+  const selected = () => parsed.filter((r) => r.on && usable(r));
 
-  function render() {
+  /* Con doce estados de cuenta esto son cientos de filas: se construyen una
+     sola vez y cada toque repinta solo su fila, no la lista entera. */
+  function buildList() {
     const list = $('#impList');
     list.textContent = '';
 
-    let currentCur = null;
+    let currentMonth = null;
     for (const row of parsed) {
-      if (row.currency !== currentCur) {
-        currentCur = row.currency;
+      const month = row.date.slice(0, 7);
+      if (month !== currentMonth) {
+        currentMonth = month;
         const head = document.createElement('div');
         head.className = 'imp-section';
-        head.textContent = currentCur === host.currency()
-          ? t('imp.section.own', { cur: currentCur })
-          : t('imp.section.other', { cur: currentCur });
+        head.textContent = host.monthLabel(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1));
         list.appendChild(head);
       }
+      list.appendChild(buildRow(row));
+    }
+  }
 
-      // Sin tasa de cambio, un movimiento en otra moneda no se puede importar:
-      // se muestra desmarcado aunque el usuario lo hubiera marcado antes.
-      const usable = convert(row) !== null;
-      const on = row.on && usable;
+  function buildRow(row) {
+    const el = document.createElement('div');
+    el.className = 'imp-row';
+    el.innerHTML =
+      '<button type="button" class="imp-check"></button>' +
+      '<div class="imp-main"><div class="imp-desc"></div><div class="imp-meta"></div></div>' +
+      '<div class="imp-right"><div class="imp-amt"></div><select class="imp-cat"></select></div>';
 
-      const el = document.createElement('div');
-      el.className = 'imp-row' + (on ? ' on' : '');
-      el.innerHTML =
-        '<button type="button" class="imp-check" aria-pressed="false"></button>' +
-        '<div class="imp-main"><div class="imp-desc"></div><div class="imp-meta"></div></div>' +
-        '<div class="imp-right"><div class="imp-amt"></div><select class="imp-cat"></select></div>';
+    el.querySelector('.imp-desc').textContent = row.desc;
 
-      const check = el.querySelector('.imp-check');
-      check.textContent = on ? '✓' : '';
-      check.setAttribute('aria-pressed', String(on));
-      check.onclick = () => {
-        if (!usable) return host.toast(t('imp.needRate'));
-        row.on = !row.on;
-        render();
-      };
+    const tags = [row.date.slice(8) + '/' + row.date.slice(5, 7)];
+    if (row.currency !== host.currency()) tags.push(row.currency);
+    if (row.credit) tags.push(t('imp.tag.payment'));
+    if (row.dup) tags.push(t('imp.tag.dup'));
+    el.querySelector('.imp-meta').textContent = tags.join('  ·  ');
 
-      el.querySelector('.imp-desc').textContent = row.desc;
+    const check = el.querySelector('.imp-check');
+    check.onclick = () => {
+      if (!usable(row)) return host.toast(t('imp.needRate'));
+      row.on = !row.on;
+      paintRow(el, row);
+      refreshSummary();
+    };
 
-      const tags = [row.date.slice(8) + '/' + row.date.slice(5, 7)];
-      if (row.credit) tags.push(t('imp.tag.payment'));
-      if (row.dup) tags.push(t('imp.tag.dup'));
-      el.querySelector('.imp-meta').textContent = tags.join('  ·  ');
-
-      const converted = convert(row);
-      el.querySelector('.imp-amt').textContent = converted === null
-        ? row.currency + ' ' + (row.cents / 100).toFixed(2)
-        : host.fmt(converted);
-
-      const sel = el.querySelector('.imp-cat');
+    // Las categorías se cuelgan al abrir el desplegable: con cientos de filas,
+    // crearlas todas de golpe hace lenta la pantalla en el teléfono.
+    const sel = el.querySelector('.imp-cat');
+    const fill = () => {
+      if (sel.options.length) return;
       for (const c of host.cats()) {
         const o = document.createElement('option');
         o.value = c.id;
@@ -323,29 +355,64 @@ window.STATEMENT = (() => {
         sel.appendChild(o);
       }
       sel.value = row.cat;
-      sel.onchange = () => { row.cat = sel.value; };
+    };
+    sel.addEventListener('focus', fill);
+    sel.addEventListener('mousedown', fill);
+    sel.addEventListener('touchstart', fill, { passive: true });
+    sel.onchange = () => { row.cat = sel.value; };
 
-      list.appendChild(el);
-    }
+    paintRow(el, row);
+    return el;
+  }
 
+  function paintRow(el, row) {
+    const on = row.on && usable(row);
+    el.classList.toggle('on', on);
+    const check = el.querySelector('.imp-check');
+    check.textContent = on ? '✓' : '';
+    check.setAttribute('aria-pressed', String(on));
+
+    const cents = convert(row);
+    el.querySelector('.imp-amt').textContent = cents === null
+      ? (row.cents / 100).toFixed(2)
+      : host.fmt(cents);
+
+    const sel = el.querySelector('.imp-cat');
+    if (sel.options.length) sel.value = row.cat;
+    else sel.innerHTML = '<option>' + host.catName(host.catById(row.cat)) + '</option>';
+  }
+
+  function repaintAll() {
+    const rows = $('#impList').querySelectorAll('.imp-row');
+    let i = 0;
+    for (const row of parsed) paintRow(rows[i++], row);
+  }
+
+  function refreshSummary() {
     const picked = selected();
-    const total = picked.reduce((sum, r) => sum + convert(r), 0);
+    const total = picked.reduce((s, r) => s + convert(r), 0);
     $('#impSummary').textContent = t('imp.summary', {
       n: picked.length, total: host.fmt(total), all: parsed.length
     });
     $('#impSave').textContent = t('imp.add', { n: picked.length });
-    $('#impRate').hidden = foreign().length === 0;
-    if (foreign().length) {
-      $('#impRateLabel').textContent = t('imp.rate', {
-        from: foreign()[0].currency, to: host.currency()
-      });
+
+    const foreign = parsed.some((r) => r.currency !== host.currency());
+    $('#impRate').hidden = !foreign;
+    if (foreign) {
+      const other = parsed.find((r) => r.currency !== host.currency());
+      $('#impRateLabel').textContent = t('imp.rate', { from: other.currency, to: host.currency() });
     }
   }
 
+  /* "Marcar todo" no marca literalmente todo: con doce estados solapados eso
+     metería los duplicados y los pagos a la tarjeta. Marca lo que la app
+     recomienda, y si ya está todo marcado, lo quita. */
   function toggleAll() {
-    const anyOff = parsed.some((r) => !r.on && convert(r) !== null);
-    for (const r of parsed) r.on = anyOff && convert(r) !== null;
-    render();
+    const recommended = (r) => usable(r) && !r.dup && !r.credit;
+    const missing = parsed.some((r) => !r.on && recommended(r));
+    for (const r of parsed) r.on = missing && recommended(r);
+    repaintAll();
+    refreshSummary();
   }
 
   function close() {
@@ -364,8 +431,8 @@ window.STATEMENT = (() => {
 
     host.addImported(picked.map((r) => ({
       cents: convert(r), cat: r.cat, pay: pay, date: r.date,
-      note: r.desc, sig: r.sig
-    })), fileName);
+      note: r.desc, sig: r.sig, file: r.file
+    })));
     close();
   }
 
@@ -377,12 +444,11 @@ window.STATEMENT = (() => {
     $('#impBackdrop').addEventListener('click', close);
     $('#impSave').addEventListener('click', commit);
     $('#impAll').addEventListener('click', toggleAll);
-    $('#impPay').addEventListener('change', (ev) => { payId = ev.target.value; });
     $('#impRateInput').addEventListener('input', (ev) => {
-      const n = parseFloat(ev.target.value.replace(',', '.'));
-      rate = Number.isFinite(n) && n > 0 ? n : 0;
-      for (const r of parsed) if (r.currency !== host.currency() && !rate) r.on = false;
-      render();
+      const n = host.parseNumber(ev.target.value);
+      rate = n > 0 ? n : 0;
+      repaintAll();
+      refreshSummary();
     });
   }
 
