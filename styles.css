@@ -211,7 +211,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 .cat-line:last-child { border-bottom: 0; }
 .cat-line .ico { font-size: 20px; width: 26px; text-align: center; }
 .cat-line .nm { flex: 1; }
-.cat-line .rm { color: var(--danger); font-size: 14px; padding: 6px 8px; }
+.cat-line .rm { color: var(--danger); font-size: 14px; padding: 6px 8px; flex: none; }
+.cat-line .nm b { display: block; font-weight: 500; font-size: 15px; }
+.cat-line .nm small { display: block; font-size: 12px; color: var(--text-dim); }
 .cat-line .used { font-size: 12px; color: var(--text-dim); }
 
 .addcat { display: flex; gap: 8px; padding: 10px; margin-top: 10px; align-items: center; }

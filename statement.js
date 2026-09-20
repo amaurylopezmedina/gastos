@@ -13,6 +13,7 @@ window.STATEMENT = (() => {
   let host = null;          // puente con app.js
   let parsed = [];          // movimientos detectados
   let rate = 0;             // tasa de cambio para la moneda extranjera
+  let fileName = '';        // nombre del PDF, para poder deshacer la carga
 
   const $ = (s) => document.querySelector(s);
   const t = (k, v) => window.I18N.t(k, v);
@@ -185,6 +186,7 @@ window.STATEMENT = (() => {
   /* ---------------- Interfaz de revisión ---------------- */
 
   async function open(file) {
+    fileName = (file && file.name) || 'PDF';
     host.toast(t('imp.reading'));
     let result;
     try {
@@ -363,7 +365,7 @@ window.STATEMENT = (() => {
     host.addImported(picked.map((r) => ({
       cents: convert(r), cat: r.cat, pay: pay, date: r.date,
       note: r.desc, sig: r.sig
-    })));
+    })), fileName);
     close();
   }
 

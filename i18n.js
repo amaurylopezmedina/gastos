@@ -176,6 +176,13 @@ window.I18N = (() => {
       'imp.cardName': 'Tarjeta ···{n}',
       'imp.imported.one': '{n} gasto importado',
       'imp.imported.other': '{n} gastos importados',
+      'set.imports': 'Cargas hechas',
+      'imp.batchInfo': '{n} gastos · {total} · importado el {date}',
+      'imp.batchRemoved.one': 'Se borró 1 gasto de esa carga',
+      'imp.batchRemoved.other': 'Se borraron {n} gastos de esa carga',
+      'ask.removeBatch': '¿Eliminar la carga de {file}?\n\nSe borrarán los {n} gastos que quedan de ella, por un total de {total}. Lo que hayas apuntado a mano no se toca. No se puede deshacer.',
+      'ask.removeBatchEmpty': 'De la carga de {file} ya no queda ningún gasto en la app. ¿Quitarla de la lista?',
+
       'imp.hint': 'Descarga el PDF del estado de cuenta de tu banco y ábrelo aquí. Se lee en el propio teléfono: el archivo no se envía a ningún sitio. Los pagos a la tarjeta y lo ya importado vienen desmarcados.',
 
       'cat.none': 'Sin categoría',
@@ -374,6 +381,13 @@ window.I18N = (() => {
       'imp.cardName': 'Card ···{n}',
       'imp.imported.one': '{n} expense imported',
       'imp.imported.other': '{n} expenses imported',
+      'set.imports': 'Imports made',
+      'imp.batchInfo': '{n} expenses · {total} · imported on {date}',
+      'imp.batchRemoved.one': '1 expense from that import deleted',
+      'imp.batchRemoved.other': '{n} expenses from that import deleted',
+      'ask.removeBatch': 'Delete the import from {file}?\n\nThe {n} expenses still left from it will be deleted, {total} in total. Anything you entered by hand is untouched. This cannot be undone.',
+      'ask.removeBatchEmpty': 'No expenses from {file} are left in the app. Remove it from the list?',
+
       'imp.hint': 'Download your bank statement PDF and open it here. It is read on the phone itself: the file is never uploaded. Card payments and anything already imported come unselected.',
 
       'cat.none': 'No category',

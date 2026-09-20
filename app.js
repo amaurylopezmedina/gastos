@@ -45,7 +45,8 @@
     try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (_) {}
     const base = {
       v: 3, lang: null, currency: 'EUR', budget: 0,
-      cats: DEFAULT_CATS.slice(), pays: DEFAULT_PAYS.slice(), expenses: [], debts: []
+      cats: DEFAULT_CATS.slice(), pays: DEFAULT_PAYS.slice(),
+      expenses: [], debts: [], imports: []
     };
     if (!saved || typeof saved !== 'object') return base;
 
@@ -59,6 +60,7 @@
     return {
       v: 3,
       debts: Array.isArray(saved.debts) ? saved.debts : [],
+      imports: Array.isArray(saved.imports) ? saved.imports : [],
       lang: typeof saved.lang === 'string' ? saved.lang : null,
       currency: typeof saved.currency === 'string' ? saved.currency : base.currency,
       budget: Number.isFinite(saved.budget) ? saved.budget : 0,
@@ -449,6 +451,45 @@
     renderAll();
   }
 
+  /* Cada importación se puede deshacer entera. Se cuenta lo que queda de
+     verdad, porque el usuario puede haber borrado o editado gastos sueltos
+     desde entonces. */
+  function renderImports() {
+    const box = $('#importList');
+    box.textContent = '';
+    $('#importsTitle').hidden = state.imports.length === 0;
+    box.hidden = state.imports.length === 0;
+
+    for (const batch of state.imports.slice().reverse()) {
+      const alive = state.expenses.filter((e) => e.batch === batch.id);
+      const line = document.createElement('div');
+      line.className = 'cat-line';
+      line.innerHTML =
+        '<span class="nm"><b></b><small></small></span><button class="rm" type="button"></button>';
+      line.querySelector('b').textContent = batch.file;
+      line.querySelector('small').textContent = t('imp.batchInfo', {
+        n: alive.length, total: fmt(sum(alive)), date: batch.when
+      });
+      const rm = line.querySelector('.rm');
+      rm.textContent = t('set.remove');
+      rm.onclick = () => removeBatch(batch, alive);
+      box.appendChild(line);
+    }
+  }
+
+  function removeBatch(batch, alive) {
+    const msg = alive.length
+      ? t('ask.removeBatch', { n: alive.length, total: fmt(sum(alive)), file: batch.file })
+      : t('ask.removeBatchEmpty', { file: batch.file });
+    if (!confirm(msg)) return;
+
+    state.expenses = state.expenses.filter((e) => e.batch !== batch.id);
+    state.imports = state.imports.filter((b) => b.id !== batch.id);
+    save();
+    renderAll();
+    toast(tn('imp.batchRemoved', alive.length));
+  }
+
   function renderSettings() {
     const sel = $('#lang');
     if (!sel.options.length) {
@@ -466,6 +507,7 @@
       : '';
     renderChipEditor($('#catEditor'), state.cats, 'cat');
     renderChipEditor($('#payEditor'), state.pays, 'pay');
+    renderImports();
     refreshUsage();
   }
 
@@ -895,15 +937,24 @@
       save();
       return pay.id;
     },
-    addImported: (list) => {
+    addImported: (list, fileName) => {
       const now = Date.now();
+      // Cada carga queda identificada para poder deshacerla entera después.
+      const batch = 'b_' + uid();
       for (const row of list) {
         state.expenses.push({
           id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
           date: row.date, note: row.note, photo: null,
-          sig: row.sig, src: 'pdf', ts: now
+          sig: row.sig, src: 'pdf', batch: batch, ts: now
         });
       }
+      state.imports.push({
+        id: batch,
+        file: fileName || 'PDF',
+        when: ymd(new Date()),
+        count: list.length,
+        cents: list.reduce((s, r) => s + r.cents, 0)
+      });
       save();
       // Deja a la vista el mes del último movimiento importado.
       const last = list.map((r) => r.date).sort().pop();
