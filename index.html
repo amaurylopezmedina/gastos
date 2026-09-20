@@ -168,6 +168,7 @@
       <h2 class="section-title" data-i18n="set.data"></h2>
       <div class="group">
         <button class="row action" id="importPdf"><span data-i18n="imp.button"></span><span class="chev">PDF</span></button>
+        <button class="row action" id="reconcilePdf"><span data-i18n="rec.button"></span><span class="chev">PDF</span></button>
         <button class="row action" id="exportJson"><span data-i18n="set.export.json"></span><span class="chev">JSON</span></button>
         <button class="row action" id="exportCsv"><span data-i18n="set.export.csv"></span><span class="chev">CSV</span></button>
         <button class="row action" id="importBtn"><span data-i18n="set.import"></span><span class="chev">&rsaquo;</span></button>
@@ -175,11 +176,13 @@
       </div>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
       <input type="file" id="pdfFile" accept="application/pdf,.pdf" multiple hidden>
+      <input type="file" id="recFile" accept="application/pdf,.pdf" multiple hidden>
 
       <h2 class="section-title" id="importsTitle" data-i18n="set.imports" hidden></h2>
       <div class="group" id="importList" hidden></div>
 
       <p class="note" data-i18n="imp.hint"></p>
+      <p class="note" data-i18n="rec.hint"></p>
       <p class="note" data-i18n="set.storage"></p>
       <p class="note" id="usageNote"></p>
       <p class="note version">Gastos &middot; v1.1.0</p>
@@ -292,6 +295,42 @@
   <div class="sheet-pad"></div>
 </div>
 
+<!-- ============ HOJA: CONCILIAR ============ -->
+<div class="sheet-backdrop" id="recBackdrop" hidden></div>
+<div class="sheet sheet-full" id="recSheet" hidden role="dialog" aria-modal="true">
+  <div class="sheet-head">
+    <button class="sheet-btn" id="recClose" data-i18n="rec.close"></button>
+    <strong data-i18n="rec.title"></strong>
+    <span class="sheet-btn"></span>
+  </div>
+
+  <div class="imp-summary" id="recPeriod"></div>
+
+  <div class="imp-bar">
+    <select id="recPay" aria-label="Forma de pago"></select>
+  </div>
+
+  <div class="cards">
+    <div class="card"><span class="card-label" data-i18n="rec.bank"></span><span class="card-value" id="recBank">0</span></div>
+    <div class="card"><span class="card-label" data-i18n="rec.mine"></span><span class="card-value" id="recMine">0</span></div>
+    <div class="card card-wide"><span class="card-label" data-i18n="rec.diff"></span><span class="card-value" id="recDiff">0</span></div>
+  </div>
+
+  <p class="note" id="recVerdict"></p>
+
+  <h2 class="section-title" id="recMissingTitle" hidden></h2>
+  <div id="recMissing" class="rec-list" hidden></div>
+  <button class="debt-pay" id="recAdd" hidden></button>
+
+  <h2 class="section-title" id="recExtraTitle" hidden></h2>
+  <div id="recExtra" class="rec-list" hidden></div>
+
+  <h2 class="section-title" id="recMatchedTitle" hidden></h2>
+  <div id="recMatched" class="rec-list" hidden></div>
+
+  <div class="sheet-pad"></div>
+</div>
+
 <!-- ============ HOJA: IMPORTAR ESTADO DE CUENTA ============ -->
 <div class="sheet-backdrop" id="impBackdrop" hidden></div>
 <div class="sheet sheet-full" id="impSheet" hidden role="dialog" aria-modal="true">
@@ -326,6 +365,7 @@
 
 <script src="i18n.js"></script>
 <script src="statement.js"></script>
+<script src="reconcile.js"></script>
 <script src="loans.js"></script>
 <script src="app.js"></script>
 </body>

@@ -21,6 +21,11 @@ y sin conexión: los datos viven en el propio teléfono.
   carga aparte, que se puede deshacer entera. El PDF se lee en el propio
   teléfono con `pdf.js` servido desde este sitio: **no se sube a ningún
   servidor**.
+- **Conciliar con un estado** (apartado aparte del anterior: aquí no se importa
+  nada). Compara el estado con lo que ya tienes apuntado y responde a tres
+  cosas: qué cuadra, qué te falta por apuntar y qué apuntaste que el banco no
+  cobró. Empareja por importe admitiendo unos días entre la compra y el cargo,
+  así que también reconoce lo escrito a mano con otro texto.
 - **Deudas**: préstamos y tarjetas con balance, tasa anual, plazo y día de pago.
   Calcula la cuota (sistema francés), el consolidado de lo que debes, cuánto
   toca pagar al mes y un calendario de los próximos pagos. Al registrar una
@@ -35,6 +40,7 @@ y sin conexión: los datos viven en el propio teléfono.
 | `styles.css` | Estilos, modo claro/oscuro y márgenes seguros del iPhone |
 | `app.js` | Lógica: estado, render, cámara, import/export |
 | `statement.js` | Lectura del estado de cuenta en PDF y pantalla de revisión |
+| `reconcile.js` | Conciliación: comparar un estado con lo ya apuntado |
 | `loans.js` | Deudas: cuotas, amortización, consolidado y calendario |
 | `i18n.js` | Traducciones (`es`, `en`) |
 | `vendor/` | `pdf.js`, servido desde el propio sitio (no hay CDN de terceros) |

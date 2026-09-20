@@ -184,6 +184,58 @@ window.STATEMENT = (() => {
 
   /* ---------------- Abrir uno o varios PDF ---------------- */
 
+  /* Lectura pura, sin interfaz: la usa esta pantalla y también la de
+     conciliación. Devuelve los movimientos con su firma ya numerada por
+     archivo y el dato de si vienen repetidos de otro archivo de la tanda. */
+  async function parseFiles(fileList, onProgress) {
+    const files = Array.from(fileList || []).filter(Boolean);
+    const rows = [];
+    const known = new Set();
+    let card = null;
+    let failed = 0;
+    let read = 0;
+
+    for (const file of files) {
+      if (onProgress) onProgress(++read, files.length);
+
+      let result;
+      try {
+        result = await readPdf(file);
+      } catch (_) {
+        failed++;
+        continue;
+      }
+      if (result.card && !card) card = result.card;
+
+      /* Repetir una firma significa cosas distintas según dónde pase:
+         - dentro del mismo estado, el banco lista dos cobros que de verdad
+           ocurrieron dos veces ese día, y hay que contar los dos;
+         - entre dos estados, es el mismo movimiento apareciendo en ambos,
+           porque los cortes de mes se solapan, y solo cuenta una vez. */
+      const inThisFile = new Map();
+      for (const row of result.rows) {
+        const base = baseSig(row);
+        const n = (inThisFile.get(base) || 0) + 1;
+        inThisFile.set(base, n);
+        const sig = numbered(base, n);
+        rows.push({
+          file: file.name || 'PDF',
+          date: row.date,
+          desc: row.desc,
+          cents: row.cents,
+          currency: row.currency || host.currency(),
+          credit: Boolean(row.credit),
+          sig: sig,
+          repeated: known.has(sig)     // ya venía en un archivo anterior
+        });
+        known.add(sig);
+      }
+    }
+
+    rows.sort((a, b) => a.date.localeCompare(b.date) || a.desc.localeCompare(b.desc));
+    return { rows: rows, card: card, failed: failed, files: files.length };
+  }
+
   let cardSeen = null;
 
   async function open(fileList) {
@@ -194,63 +246,27 @@ window.STATEMENT = (() => {
     rate = 0;
     cardSeen = null;
 
-    /* Repetir una firma significa cosas distintas según dónde pase:
-       - dentro del mismo estado, el banco lista dos cobros que de verdad
-         ocurrieron dos veces ese día, y hay que importar los dos;
-       - entre dos estados, es el mismo movimiento apareciendo en ambos,
-         porque los cortes de mes se solapan, y solo va una vez.
-       Por eso el número de repetición se cuenta por archivo, y lo visto se
-       acumula entre archivos para descartar el solapamiento. */
-    const known = new Set(host.signatures());
+    const already = host.signatures();
+    const result = await parseFiles(files, (n, total) => {
+      host.toast(total > 1 ? t('imp.readingOne', { n: n, total: total }) : t('imp.reading'));
+    });
+    cardSeen = result.card;
 
-    let read = 0;
-    let failed = 0;
-    for (const file of files) {
-      host.toast(files.length > 1
-        ? t('imp.readingOne', { n: ++read, total: files.length })
-        : t('imp.reading'));
-
-      let result;
-      try {
-        result = await readPdf(file);
-      } catch (_) {
-        failed++;
-        continue;
-      }
-      if (result.card && !cardSeen) cardSeen = result.card;
-
-      const inThisFile = new Map();
-      for (const row of result.rows) {
-        const base = baseSig(row);
-        const n = (inThisFile.get(base) || 0) + 1;
-        inThisFile.set(base, n);
-        const sig = numbered(base, n);
-        const dup = known.has(sig);
-        known.add(sig);
-
-        parsed.push({
-          file: file.name || 'PDF',
-          date: row.date,
-          desc: row.desc,
-          cents: row.cents,
-          currency: row.currency || host.currency(),
-          credit: Boolean(row.credit),
-          dup: dup,
-          sig: sig,
-          cat: suggestCat(row.desc),
-          // Un pago a la tarjeta no es un gasto, y un duplicado ya está apuntado.
-          on: !row.credit && !dup
-        });
-      }
+    for (const row of result.rows) {
+      // Ya apuntado en la app, o repetido por el solapamiento entre estados.
+      const dup = already.has(row.sig) || row.repeated;
+      parsed.push(Object.assign({}, row, {
+        dup: dup,
+        cat: suggestCat(row.desc),
+        // Un pago a la tarjeta no es un gasto, y un duplicado ya está apuntado.
+        on: !row.credit && !dup
+      }));
     }
 
     if (!parsed.length) {
-      return host.toast(t(failed ? 'imp.failed' : 'imp.nothing'));
+      return host.toast(t(result.failed ? 'imp.failed' : 'imp.nothing'));
     }
-    if (failed) host.toast(tn('imp.someFailed', failed));
-
-    // Orden cronológico: el historial se lee de más antiguo a más reciente.
-    parsed.sort((a, b) => a.date.localeCompare(b.date) || a.desc.localeCompare(b.desc));
+    if (result.failed) host.toast(tn('imp.someFailed', result.failed));
 
     prepareCard(cardSeen);
     buildList();
@@ -452,5 +468,5 @@ window.STATEMENT = (() => {
     });
   }
 
-  return { init: init, open: open };
+  return { init: init, open: open, parseFiles: parseFiles, suggestCat: suggestCat };
 })();

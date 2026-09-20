@@ -268,6 +268,11 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 
 /* ---------- Sheet ---------- */
+/* La hoja de un gasto es la más interior: se abre también desde la
+   conciliación, y debe quedar por encima de las demás. */
+#backdrop { z-index: 13; }
+#sheet { z-index: 14; }
+
 .sheet-backdrop {
   position: fixed; inset: 0; z-index: 8;
   background: rgba(0, 0, 0, .4);
@@ -462,6 +467,34 @@ button { background: none; border: 0; padding: 0; cursor: pointer; }
 }
 .field-calc { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .field-calc button { color: var(--accent); font-size: 13px; flex: none; }
+
+/* ---------- Conciliación ---------- */
+.card-wide { grid-column: 1 / -1; }
+/* Los totales de un mes entero son largos: aquí caben en dos columnas solo
+   con un cuerpo menor. */
+#recSheet .card-value { font-size: 18px; overflow-wrap: anywhere; }
+#recSheet .card-wide .card-value { font-size: 24px; }
+
+.rec-list { background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+.rec-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 11px 14px; border-bottom: 1px solid var(--line);
+  text-align: left; background: none;
+}
+.rec-row:last-child { border-bottom: 0; }
+button.rec-row:active { background: var(--surface-2); }
+.rec-main { flex: 1; min-width: 0; }
+.rec-main b {
+  display: block; font-weight: 500; font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rec-main small {
+  display: block; font-size: 11px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rec-amt { flex: none; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+#recAdd { margin-top: 10px; }
 
 /* ---------- Importar estado de cuenta ---------- */
 .sheet-full { max-height: 100%; height: 100%; border-radius: 0; padding-top: var(--safe-top); }

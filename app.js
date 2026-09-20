@@ -878,6 +878,24 @@
     toast(t('msg.wiped'));
   }
 
+  /* ---------------- Conciliación ---------------- */
+
+  window.RECONCILE.init({
+    fmt: fmt,
+    toast: toast,
+    currency: () => state.currency,
+    expenses: () => state.expenses,
+    pays: () => state.pays,
+    payName: (p) => label(p, 'pay'),
+    catName: (id) => catName(id),
+    dayLabel: (date) => dayLabel(date),
+    editExpense: (id) => {
+      const e = state.expenses.find((x) => x.id === id);
+      if (e) openSheet(e);
+    },
+    addImported: (list) => addImportedRows(list)
+  });
+
   /* ---------------- Deudas ---------------- */
 
   function parseNumber(text) {
@@ -956,39 +974,43 @@
       save();
       return pay.id;
     },
-    addImported: (list) => {
-      const now = Date.now();
-      // Un lote por archivo, aunque se hayan abierto varios de golpe: así se
-      // puede deshacer el estado de un mes concreto sin tocar los demás.
-      const batches = new Map();
-      for (const row of list) {
-        const file = row.file || 'PDF';
-        if (!batches.has(file)) batches.set(file, 'b_' + uid());
-        state.expenses.push({
-          id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
-          date: row.date, note: row.note, photo: null,
-          sig: row.sig, src: 'pdf', batch: batches.get(file), ts: now
-        });
-      }
-      for (const [file, batch] of batches) {
-        const mine = list.filter((r) => (r.file || 'PDF') === file);
-        state.imports.push({
-          id: batch,
-          file: file,
-          when: ymd(new Date()),
-          count: mine.length,
-          cents: mine.reduce((s, r) => s + r.cents, 0)
-        });
-      }
-      save();
-      // Deja a la vista el mes del último movimiento importado.
-      const last = list.map((r) => r.date).sort().pop();
-      if (last) cursor = startOfMonth(parseDate(last));
-      renderAll();
-      toast(tn('imp.imported', list.length));
-      offerCardDebt(list.length ? list[0].pay : null);
-    }
+    addImported: (list) => addImportedRows(list)
   });
+
+  // La usan tanto la importación como la conciliación al apuntar lo que falta.
+  function addImportedRows(list) {
+    if (!list.length) return;
+    const now = Date.now();
+    // Un lote por archivo, aunque se hayan abierto varios de golpe: así se
+    // puede deshacer el estado de un mes concreto sin tocar los demás.
+    const batches = new Map();
+    for (const row of list) {
+      const file = row.file || 'PDF';
+      if (!batches.has(file)) batches.set(file, 'b_' + uid());
+      state.expenses.push({
+        id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
+        date: row.date, note: row.note, photo: null,
+        sig: row.sig, src: 'pdf', batch: batches.get(file), ts: now
+      });
+    }
+    for (const [file, batch] of batches) {
+      const mine = list.filter((r) => (r.file || 'PDF') === file);
+      state.imports.push({
+        id: batch,
+        file: file,
+        when: ymd(new Date()),
+        count: mine.length,
+        cents: mine.reduce((s, r) => s + r.cents, 0)
+      });
+    }
+    save();
+    // Deja a la vista el mes del último movimiento importado.
+    const last = list.map((r) => r.date).sort().pop();
+    if (last) cursor = startOfMonth(parseDate(last));
+    renderAll();
+    toast(tn('imp.imported', list.length));
+    offerCardDebt(list[0].pay);
+  }
 
   /* ---------------- Navegación ---------------- */
 
@@ -1117,6 +1139,13 @@
     const files = ev.target.files;
     ev.target.value = '';
     if (files && files.length) window.STATEMENT.open(files);
+  });
+
+  $('#reconcilePdf').addEventListener('click', () => $('#recFile').click());
+  $('#recFile').addEventListener('change', (ev) => {
+    const files = ev.target.files;
+    ev.target.value = '';
+    if (files && files.length) window.RECONCILE.open(files);
   });
 
   // Evita el zoom por doble toque en iOS sin bloquear los toques normales.
