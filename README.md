@@ -27,9 +27,15 @@ y sin conexión: los datos viven en el propio teléfono.
   cobró. Empareja por importe admitiendo unos días entre la compra y el cargo,
   así que también reconoce lo escrito a mano con otro texto.
 - **Deudas**: préstamos y tarjetas con balance, tasa anual, plazo y día de pago.
-  Calcula la cuota (sistema francés), el consolidado de lo que debes, cuánto
-  toca pagar al mes y un calendario de los próximos pagos. Al registrar una
-  cuota, la apunta como gasto y descuenta del balance el capital amortizado.
+  Calcula la cuota (sistema francés) y muestra el consolidado: cuánto debes en
+  total, separado en tarjetas y préstamos, lo que toca pagar al mes, lo que
+  queda pendiente y cuánto se va en intereses. Al registrar una cuota, la
+  apunta como gasto y descuenta del balance el capital amortizado.
+- **Calendario mensual de pagos** navegable, con los días marcados, y avisos al
+  abrir la app de lo que vence pronto o ya venció. Para que el recordatorio
+  llegue con la app cerrada, exporta los pagos al calendario del teléfono
+  (archivo `.ics` con eventos mensuales y alarma el día antes): una PWA no
+  puede programar notificaciones por su cuenta en iOS.
 - **Copias de seguridad**: exportar/importar JSON (incluye las fotos) y exportar CSV.
 
 ## Archivos

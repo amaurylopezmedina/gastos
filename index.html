@@ -89,7 +89,10 @@
       <div class="hero">
         <div class="hero-label" data-i18n="debt.total"></div>
         <div class="hero-amount" id="debtTotal">0</div>
+        <div class="hero-split" id="debtSplit"></div>
       </div>
+
+      <div id="debtAlerts"></div>
 
       <div class="cards">
         <div class="card"><span class="card-label" data-i18n="debt.monthly"></span><span class="card-value" id="debtMonthly">0</span></div>
@@ -98,7 +101,23 @@
           <span class="card-value" id="debtNext">&mdash;</span>
           <span class="card-sub" id="debtNextWhen"></span>
         </div>
+        <div class="card"><span class="card-label" data-i18n="debt.pending"></span><span class="card-value" id="debtPending">0</span></div>
+        <div class="card"><span class="card-label" data-i18n="debt.interest"></span><span class="card-value" id="debtInterest">0</span></div>
       </div>
+
+      <h2 class="section-title" id="debtCalendarTitle" data-i18n="debt.calendar" hidden></h2>
+      <div class="calmonth" id="debtCalendarBox" hidden>
+        <div class="calmonth-head">
+          <button class="monthnav" data-calmonth="-1" data-i18n-aria="nav.prev">&lsaquo;</button>
+          <div class="calmonth-label"><span id="calMonthName"></span><small id="calMonthTotal"></small></div>
+          <button class="monthnav" data-calmonth="1" data-i18n-aria="nav.next">&rsaquo;</button>
+        </div>
+        <div class="calgrid-week" id="calWeekdays"></div>
+        <div class="calgrid" id="calGrid"></div>
+        <div id="debtCalendar" class="calendar"></div>
+      </div>
+
+      <button class="add-debt" id="debtIcs" hidden><span>&#128197;</span> <span data-i18n="debt.ics"></span></button>
 
       <h2 class="section-title" data-i18n="debt.list"></h2>
       <div id="debtList"></div>
@@ -109,9 +128,6 @@
       </div>
 
       <button class="add-debt" id="debtAdd"><span>+</span> <span data-i18n="debt.add"></span></button>
-
-      <h2 class="section-title" id="debtCalendarTitle" data-i18n="debt.calendar" hidden></h2>
-      <div id="debtCalendar" class="calendar"></div>
 
       <div class="bottom-pad"></div>
     </div>

@@ -77,11 +77,17 @@ window.LOANS = (() => {
   /* ---------------- Consolidado y calendario ---------------- */
 
   function totals() {
-    const debts = host.debts();
+    const debts = host.debts().filter((d) => d.balance > 0);
+    const byKind = (kind) => debts.filter((d) => d.kind === kind).reduce((s, d) => s + d.balance, 0);
     return {
       balance: debts.reduce((s, d) => s + d.balance, 0),
-      monthly: debts.reduce((s, d) => s + (d.balance > 0 ? d.payment : 0), 0),
-      count: debts.filter((d) => d.balance > 0).length
+      cards: byKind('card'),
+      loans: byKind('loan'),
+      monthly: debts.reduce((s, d) => s + d.payment, 0),
+      // Lo que queda por pagar de este mes: las cuotas aún no registradas.
+      pending: debts.filter((d) => !paidThisMonth(d)).reduce((s, d) => s + d.payment, 0),
+      interest: debts.reduce((s, d) => s + split(d).interest, 0),
+      count: debts.length
     };
   }
 
@@ -109,15 +115,54 @@ window.LOANS = (() => {
     const sum = totals();
 
     $('#debtTotal').textContent = host.fmt(sum.balance);
+
+    const parts = [];
+    if (sum.cards) parts.push(t('debt.cards', { amount: host.fmt(sum.cards) }));
+    if (sum.loans) parts.push(t('debt.loans', { amount: host.fmt(sum.loans) }));
+    $('#debtSplit').textContent = parts.join('  ·  ');
+
     $('#debtMonthly').textContent = host.fmt(sum.monthly);
+    $('#debtPending').textContent = host.fmt(sum.pending);
+    $('#debtInterest').textContent = host.fmt(sum.interest);
 
     const next = schedule(1)[0];
     $('#debtNext').textContent = next ? host.fmt(next.cents) : '—';
     $('#debtNextWhen').textContent = next ? whenLabel(next.date) : '';
 
+    renderAlerts();
     renderList(debts);
-    renderCalendar();
+    renderMonthCalendar();
     $('#debtEmpty').hidden = debts.length > 0;
+    $('#debtIcs').hidden = sum.count === 0;
+  }
+
+  /* ---------------- Avisos ---------------- */
+
+  /* Lo más cerca de un recordatorio que puede dar la propia app: al abrirla,
+     avisa de lo que vence pronto o ya venció. Para que avise con la app
+     cerrada está la exportación al calendario del teléfono. */
+  function renderAlerts() {
+    const box = $('#debtAlerts');
+    box.textContent = '';
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const debt of host.debts()) {
+      if (debt.balance <= 0 || paidThisMonth(debt)) continue;
+      const due = dueDate(debt, 0);
+      const days = Math.round((due - today) / DAY);
+      if (days > 3) continue;
+
+      const el = document.createElement('div');
+      el.className = 'alert' + (days < 0 ? ' late' : '');
+      el.innerHTML = '<span class="alert-ico"></span><span class="alert-text"></span>';
+      el.querySelector('.alert-ico').textContent = days < 0 ? '⚠️' : '⏰';
+      el.querySelector('.alert-text').textContent = t(days < 0 ? 'debt.alert.late' : 'debt.alert.soon', {
+        name: debt.name, amount: host.fmt(debt.payment), when: whenLabel(due)
+      });
+      box.appendChild(el);
+    }
   }
 
   function whenLabel(date) {
@@ -189,28 +234,66 @@ window.LOANS = (() => {
     }
   }
 
-  function renderCalendar() {
+  /* ---------------- Calendario mensual ---------------- */
+
+  let calCursor = new Date();       // mes que muestra la cuadrícula
+
+  function renderMonthCalendar() {
+    const rows = schedule(24);      // dos años por delante: basta para navegar
+    const has = rows.length > 0;
+    $('#debtCalendarTitle').hidden = !has;
+    $('#debtCalendarBox').hidden = !has;
+    if (!has) return;
+
+    const year = calCursor.getFullYear();
+    const month = calCursor.getMonth();
+    const key = monthKey(calCursor);
+    const mine = rows.filter((r) => monthKey(r.date) === key);
+
+    $('#calMonthName').textContent = host.monthLabel(calCursor);
+    $('#calMonthTotal').textContent = mine.length
+      ? host.fmt(mine.reduce((s, r) => s + r.cents, 0))
+      : t('debt.noPayments');
+
+    // Cabecera de días: se toman del idioma, empezando en lunes.
+    const week = $('#calWeekdays');
+    week.textContent = '';
+    for (const name of host.weekdayNames()) {
+      const el = document.createElement('span');
+      el.textContent = name;
+      week.appendChild(el);
+    }
+
+    const grid = $('#calGrid');
+    grid.textContent = '';
+
+    // Hueco inicial: lunes = 0.
+    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+    for (let i = 0; i < firstWeekday; i++) {
+      grid.appendChild(document.createElement('span'));
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let day = 1; day <= lastDay(year, month); day++) {
+      const date = new Date(year, month, day);
+      const payments = mine.filter((r) => r.date.getDate() === day);
+      const cell = document.createElement('span');
+      cell.className = 'calday';
+      if (payments.length) cell.classList.add('has');
+      if (payments.length && date < today) cell.classList.add('late');
+      if (date.getTime() === today.getTime()) cell.classList.add('today');
+      cell.innerHTML = '<b></b><i></i>';
+      cell.querySelector('b').textContent = String(day);
+      if (payments.length > 1) cell.querySelector('i').textContent = String(payments.length);
+      grid.appendChild(cell);
+    }
+
+    // Detalle del mes bajo la cuadrícula.
     const box = $('#debtCalendar');
     box.textContent = '';
-    const rows = schedule(6);
-    $('#debtCalendarTitle').hidden = rows.length === 0;
-
-    let currentMonth = null;
-    for (const row of rows.slice(0, 18)) {
-      const key = monthKey(row.date);
-      if (key !== currentMonth) {
-        currentMonth = key;
-        const head = document.createElement('div');
-        head.className = 'cal-month';
-        const label = host.monthLabel(row.date);
-        const monthTotal = rows.filter((r) => monthKey(r.date) === key)
-          .reduce((s, r) => s + r.cents, 0);
-        head.innerHTML = '<span></span><b></b>';
-        head.firstChild.textContent = label;
-        head.lastChild.textContent = host.fmt(monthTotal);
-        box.appendChild(head);
-      }
-
+    for (const row of mine) {
       const line = document.createElement('div');
       line.className = 'cal-row';
       line.innerHTML = '<span class="cal-day"></span><span class="cal-name"></span><span class="cal-amt"></span>';
@@ -220,6 +303,66 @@ window.LOANS = (() => {
       box.appendChild(line);
     }
   }
+
+  function shiftCalendar(n) {
+    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + n, 1);
+    renderMonthCalendar();
+  }
+
+  /* ---------------- Recordatorios en el calendario del teléfono ---------------- */
+
+  /* Una PWA no puede programar avisos que salten con la app cerrada: iOS no
+     lo permite sin un servidor que empuje las notificaciones. Lo que sí
+     funciona es entregar los pagos al calendario del propio teléfono, que
+     avisa por su cuenta. */
+  function icsDate(d) {
+    return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+  }
+
+  function exportIcs() {
+    const debts = host.debts().filter((d) => d.balance > 0);
+    if (!debts.length) return;
+
+    const now = new Date();
+    const stamp = icsDate(now) + 'T090000Z';
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Gastos//ES',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH'
+    ];
+
+    for (const debt of debts) {
+      const first = dueDate(debt, 0);
+      const left = monthsLeft(debt);
+      const count = Math.min(left === null ? 60 : left, 120);
+      const title = t('debt.icsTitle', { name: debt.name, amount: host.fmt(debt.payment) });
+
+      lines.push(
+        'BEGIN:VEVENT',
+        'UID:' + debt.id + '@gastos',
+        'DTSTAMP:' + stamp,
+        'DTSTART;VALUE=DATE:' + icsDate(first),
+        'DURATION:P1D',
+        'RRULE:FREQ=MONTHLY;BYMONTHDAY=' + Math.min(debt.dueDay || 1, 28) + ';COUNT=' + count,
+        'SUMMARY:' + escapeIcs(title),
+        'DESCRIPTION:' + escapeIcs(t('debt.icsBody', { name: debt.name, amount: host.fmt(debt.payment) })),
+        'BEGIN:VALARM',
+        'TRIGGER:-P1D',
+        'ACTION:DISPLAY',
+        'DESCRIPTION:' + escapeIcs(title),
+        'END:VALARM',
+        'END:VEVENT'
+      );
+    }
+
+    lines.push('END:VCALENDAR');
+    host.download('pagos.ics', lines.join('\r\n'), 'text/calendar');
+    host.toast(t('debt.icsDone'));
+  }
+
+  const escapeIcs = (s) => String(s).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
 
   /* ---------------- Registrar un pago ---------------- */
 
@@ -357,6 +500,10 @@ window.LOANS = (() => {
   function init(bridge) {
     host = bridge;
     $('#debtAdd').addEventListener('click', () => openSheet(null));
+    $('#debtIcs').addEventListener('click', exportIcs);
+    for (const b of document.querySelectorAll('[data-calmonth]')) {
+      b.addEventListener('click', () => shiftCalendar(Number(b.dataset.calmonth)));
+    }
     $('#debtCancel').addEventListener('click', closeSheet);
     $('#debtBackdrop').addEventListener('click', closeSheet);
     $('#debtSave').addEventListener('click', saveDebt);

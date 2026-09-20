@@ -923,6 +923,14 @@
     payName: (p) => label(p, 'pay'),
     debtCat: () => (state.cats.some((c) => c.id === 'banco') ? 'banco' : state.cats[0].id),
     monthLabel: (d) => cap(monthFmt.format(d)),
+    download: (name, text, type) => download(name, text, type),
+    // Iniciales de los días en el idioma activo, empezando en lunes.
+    weekdayNames: () => {
+      const fmtDay = new Intl.DateTimeFormat(moneyLocale(), { weekday: 'narrow' });
+      const out = [];
+      for (let i = 5; i < 12; i++) out.push(cap(fmtDay.format(new Date(2026, 0, i))));
+      return out;
+    },
     addExpense: (row) => {
       state.expenses.push({
         id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
