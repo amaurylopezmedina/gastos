@@ -246,13 +246,13 @@ window.LOANS = (() => {
 
   /* ---------------- Alta y edición ---------------- */
 
-  function openSheet(debt) {
+  function openSheet(debt, prefill) {
     editing = debt || null;
     $('#debtSheetTitle').textContent = t(debt ? 'debt.edit' : 'debt.new');
     $('#debtDelete').hidden = !debt;
 
-    $('#dName').value = debt ? debt.name : '';
-    $('#dKind').value = debt ? debt.kind : 'loan';
+    $('#dName').value = debt ? debt.name : (prefill && prefill.name) || '';
+    $('#dKind').value = debt ? debt.kind : (prefill && prefill.kind) || 'loan';
     $('#dPrincipal').value = debt ? money(debt.principal) : '';
     $('#dBalance').value = debt ? money(debt.balance) : '';
     $('#dRate').value = debt && debt.rate ? String(debt.rate).replace('.', host.decimalSep()) : '';
@@ -272,10 +272,16 @@ window.LOANS = (() => {
       o.textContent = host.payName(p);
       sel.appendChild(o);
     }
-    sel.value = debt && debt.pay ? debt.pay : '';
+    sel.value = debt ? (debt.pay || '') : (prefill && prefill.pay) || '';
 
     $('#debtSheet').hidden = false;
     $('#debtBackdrop').hidden = false;
+  }
+
+  // Alta desde fuera (por ejemplo, tras importar un estado de cuenta) con
+  // algunos campos ya puestos.
+  function openNew(prefill) {
+    openSheet(null, prefill);
   }
 
   const money = (cents) => (cents / 100).toFixed(2).replace('.', host.decimalSep());
@@ -358,5 +364,8 @@ window.LOANS = (() => {
     $('#dCalc').addEventListener('click', calcPayment);
   }
 
-  return { init: init, render: render, payment: payment, monthsLeft: monthsLeft, split: split };
+  return {
+    init: init, render: render, openNew: openNew,
+    payment: payment, monthsLeft: monthsLeft, split: split
+  };
 })();

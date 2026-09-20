@@ -918,6 +918,22 @@
 
   /* ---------------- Importar estado de cuenta ---------------- */
 
+  /* Tras importar, ofrece llevar esa tarjeta como deuda. El balance y el pago
+     mínimo no se leen del PDF: en los estados de cuenta esas cifras suelen ir
+     sin etiqueta de texto (la plantilla las rotula con una imagen de fondo),
+     así que adivinarlas por su posición daría cifras equivocadas. Se abre el
+     formulario y las copia el usuario. */
+  function offerCardDebt(payId) {
+    const pay = payId ? payById(payId) : null;
+    if (!pay || pay.std) return;                                   // efectivo, transferencia…
+    if (state.debts.some((d) => d.name === label(pay, 'pay'))) return;   // ya la lleva
+    setTimeout(() => {
+      if (!confirm(t('ask.cardDebt', { name: label(pay, 'pay') }))) return;
+      go('debts');
+      window.LOANS.openNew({ name: label(pay, 'pay'), kind: 'card', pay: pay.id });
+    }, 600);
+  }
+
   // statement.js no toca el estado directamente: pide y devuelve por aquí.
   window.STATEMENT.init({
     t: t,
@@ -961,6 +977,7 @@
       if (last) cursor = startOfMonth(parseDate(last));
       renderAll();
       toast(tn('imp.imported', list.length));
+      offerCardDebt(list.length ? list[0].pay : null);
     }
   });
 

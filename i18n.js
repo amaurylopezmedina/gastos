@@ -176,6 +176,8 @@ window.I18N = (() => {
       'imp.cardName': 'Tarjeta ···{n}',
       'imp.imported.one': '{n} gasto importado',
       'imp.imported.other': '{n} gastos importados',
+      'ask.cardDebt': '¿Quieres llevar {name} como deuda, para ver su balance y lo que toca pagar cada mes?\n\nEl balance y el pago mínimo los copias tú del estado de cuenta: esas cifras no vienen como texto en el PDF.',
+
       'set.imports': 'Cargas hechas',
       'imp.batchInfo': '{n} gastos · {total} · importado el {date}',
       'imp.batchRemoved.one': 'Se borró 1 gasto de esa carga',
@@ -381,6 +383,8 @@ window.I18N = (() => {
       'imp.cardName': 'Card ···{n}',
       'imp.imported.one': '{n} expense imported',
       'imp.imported.other': '{n} expenses imported',
+      'ask.cardDebt': 'Track {name} as a debt, to follow its balance and what is due each month?\n\nYou copy the balance and minimum payment from the statement yourself: those figures do not come as text in the PDF.',
+
       'set.imports': 'Imports made',
       'imp.batchInfo': '{n} expenses · {total} · imported on {date}',
       'imp.batchRemoved.one': '1 expense from that import deleted',
