@@ -509,6 +509,18 @@
     renderChipEditor($('#payEditor'), state.pays, 'pay');
     renderImports();
     refreshUsage();
+    showVersion();
+  }
+
+  /* La versión que de verdad está corriendo, para poder comprobar de un
+     vistazo si el teléfono ya cogió la última. */
+  function showVersion() {
+    const note = $('#versionNote');
+    if (!note || !window.caches) return;
+    caches.keys().then((keys) => {
+      const mine = keys.find((k) => k.indexOf('gastos-v') === 0);
+      note.textContent = 'Gastos · ' + (mine ? mine.replace('gastos-', '') : '—');
+    }).catch(() => {});
   }
 
   function refreshUsage() {
