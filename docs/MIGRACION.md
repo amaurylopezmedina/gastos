@@ -96,8 +96,14 @@ node --version          # opcional
 ### 8. ¿Llegó la zona privada?
 ```bash
 ls PRIVADO
+python PRIVADO/scripts/manifiesto.py --verificar
 ```
-- Si existe `PRIVADO/CONTEXTO-FINANCIERO.md`: léelo entero antes de seguir con deudas o presupuesto.
+- La segunda línea compara cada archivo con su huella SHA-256: dice si falta algo o llegó alterado.
+  `OK: los N archivos del manifiesto estan y son identicos` = la copia está íntegra. Una línea
+  `NUEVO` no es un error (es trabajo hecho después de copiar). `FALTA`/`DISTINTO` sí: avísale.
+  Necesita Python 3.8+ y nada más (solo la librería estándar).
+- Si existe `PRIVADO/CONTEXTO-FINANCIERO.md`: léelo entero antes de seguir con deudas o presupuesto;
+  la sección 0 es el estado exacto en que se hizo la copia.
 - Si **no existe**: el usuario copió el repo con git (que la ignora). No pasa nada con la app, pero
   has perdido el contexto financiero. Díselo con claridad y pídele que copie esa carpeta desde la
   máquina anterior; no intentes reconstruirla de memoria ni de preguntas sueltas.

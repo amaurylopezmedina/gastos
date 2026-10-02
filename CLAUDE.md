@@ -18,8 +18,9 @@ tarjeta o de préstamo (ni los últimos dígitos), nombres de bancos junto a imp
 personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 - Todo lo personal vive en **`PRIVADO/`**, que está en `.gitignore`. Viaja con una copia del
-  directorio, nunca con git. Allí está `PRIVADO/CONTEXTO-FINANCIERO.md`: léelo cuando el trabajo
-  tenga que ver con deudas, presupuesto o el plan de desmonte.
+  directorio, nunca con git. Allí está `PRIVADO/CONTEXTO-FINANCIERO.md`: léelo (la sección 0 es el
+  estado exacto y lo pendiente) cuando el trabajo tenga que ver con deudas, presupuesto, el plan de
+  desmonte o las **facturas y gastos del mes** (su flujo está en la sección 7b).
 - Antes de cada `git add`, comprueba `git status`: si ves algo de `PRIVADO/`, un `.pdf`, `.xlsx`,
   `mis-deudas.json` o una base de datos, para y avisa.
 - Datos de prueba: usa **datos inventados**. Si necesitas un PDF real para probar el importador,
