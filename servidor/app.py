@@ -87,10 +87,10 @@ def procesar(fid):
         if por != 'ollama':
             problemas.append('sin_ia')
         estado = 'listo' if not problemas else 'revisar'
-        c.execute('UPDATE facturas SET estado=?, ocr_texto=?, ocr_conf=?, campos=?, problemas=?, leida_por=?, error=NULL WHERE id=?',
+        c.execute('UPDATE facturas SET estado=?, ocr_texto=?, ocr_conf=?, campos=?, problemas=?, leida_por=?, error=NULL WHERE id=? AND estado=\'leyendo\'',
                   (estado, texto, conf, json.dumps(campos), json.dumps(problemas), por, fid))
     except Exception as e:                       # nunca perder la foto por un fallo de lectura
-        c.execute("UPDATE facturas SET estado='revisar', error=?, problemas=? WHERE id=?",
+        c.execute("UPDATE facturas SET estado='revisar', error=?, problemas=? WHERE id=? AND estado='leyendo'",
                   (type(e).__name__, json.dumps(['fallo_de_lectura']), fid))
     c.commit()
 
