@@ -74,6 +74,8 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 - **El modelo de 3B no puede elegir entre 52 rubros dentro de la extracción** (puso un id como nombre del
   comercio). Por eso el rubro se decide aparte: lo aprendido > palabras clave (`reglas_rubro.py`) > una
   llamada corta al modelo > el usuario.
+- **Cloudflare impone 4 h de caché de navegador** a los `.js`/`.css`/`.png` si el origen no manda
+  `Cache-Control: no-store` (con `no-cache` lo pisa). La API manda `no-store`; no lo cambies.
 - **Todo archivo nuevo de la app hay que añadirlo a `WEB_ARCHIVOS` en `servidor/app.py`** y al `SHELL` del
   service worker; una prueba comprueba que todo lo que cita `index.html` se sirva.
 - **Todo texto de interfaz va por `i18n.js`** (es/en, plurales `.one`/`.other`). Las categorías y

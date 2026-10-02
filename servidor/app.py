@@ -367,4 +367,4 @@ def web(ruta: str):
     if not f.is_file():
         raise HTTPException(404)
     return FileResponse(f, media_type=_TIPOS.get(f.suffix, 'application/octet-stream'),
-                        headers={'Cache-Control': 'no-cache'})
+                        headers={'Cache-Control': 'no-store'})     # Cloudflare impone 4 h al navegador si no es no-store
