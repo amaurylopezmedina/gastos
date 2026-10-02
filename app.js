@@ -1400,6 +1400,7 @@
 
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').then((reg) => {
+        navigator.serviceWorker.ready.then(showVersion);   // la caché aparece cuando el SW termina de instalarse
         const check = () => {
           if (document.visibilityState === 'visible') reg.update().catch(() => {});
         };

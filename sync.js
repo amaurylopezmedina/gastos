@@ -97,7 +97,7 @@ window.SYNC = (() => {
     await pushPendingPhotos();
 
     if (j.datos === null) {                       // servidor vacío: este dispositivo manda
-      if (host.hasData()) { set(REV, '0'); push(); }
+      if (host.hasData()) { set(REV, '0'); push(); } else host.synced(true);
       return;
     }
     if (!isDirty()) {
