@@ -1,6 +1,6 @@
 /* Service worker: app shell en caché para que funcione sin conexión.
    Sube CACHE al publicar cambios y los clientes se actualizarán solos. */
-const CACHE = 'gastos-v16';
+const CACHE = 'gastos-v17';
 
 const SHELL = [
   './',
@@ -50,6 +50,9 @@ self.addEventListener('fetch', (ev) => {
     ev.respondWith(
       fetch(req)
         .then((res) => {
+          // Solo una respuesta válida sustituye a la app guardada: un 404 (o una
+          // redirección de login) jamás debe quedar como si fuera la app.
+          if (!res.ok) return caches.match('./index.html').then((hit) => hit || res);
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put('./index.html', copy));
           return res;

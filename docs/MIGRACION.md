@@ -110,7 +110,7 @@ python PRIVADO/scripts/manifiesto.py --verificar
 
 ### 9. Prueba de humo
 1. Arranca el servidor de pruebas y abre `http://127.0.0.1:5190`.
-2. Consola sin errores; en **Ajustes** abajo debe leerse `Gastos · v16` (o la versión vigente,
+2. Consola sin errores; en **Ajustes** abajo debe leerse `Gastos · v17` (o la versión vigente,
    que es el `CACHE` de `sw.js`).
 3. Comprueba que `git status` está limpio y que **no** aparece `PRIVADO/`.
 
