@@ -1,7 +1,10 @@
 # Gastos — instrucciones para Claude
 
-PWA de gastos personales para iPhone, sin build, sin servidor. Publicada en GitHub Pages:
-https://amaurylopezmedina.github.io/gastos/ · repo: `amaurylopezmedina/gastos` (**PÚBLICO**).
+PWA de gastos personales para iPhone. **GitHub Pages está APAGADO desde el 2026-10-02** (el usuario
+quiere que la app se sirva solo desde su servidor, `gastos.iterakore.com`, detrás de Cloudflare
+Access; ver `docs/PLAN-FOTOS-IA.md`). Para reactivarlo: `gh api -X POST repos/amaurylopezmedina/gastos/pages
+-f 'source[branch]=main' -f 'source[path]=/'`. Repo: `amaurylopezmedina/gastos` (**PÚBLICO**).
+Un iPhone con la app ya instalada la sigue abriendo desde su caché (v17 no sustituye la app por un 404).
 
 El usuario habla español (dominicano). Responde en español, directo, y avísale de los riesgos
 aunque sean incómodos. Prefiere que tú ejecutes las cosas y no tener que hacerlas a mano.
@@ -39,8 +42,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
    puerto 5190; el 5173 lo usa otro servicio de esta máquina) antes de publicar, y otra vez contra el sitio real después. El panel de vista
    previa cachea fuerte: desregistra el service worker y borra cachés, o pide los archivos con
    `fetch(..., {cache:'reload'})`.
-3. Commit + `git push origin main`. Pages tarda ~1 minuto; espera a que
-   `gh api repos/amaurylopezmedina/gastos/pages/builds/latest` diga `built` con tu commit.
+3. Commit + `git push origin main`. (Con Pages apagado, el despliegue real es en el servidor de casa.)
 4. Pie de Ajustes: muestra la versión real (`Gastos · vNN`). Sirve para que el usuario compruebe
    si su teléfono tiene la última.
 5. Termina cada tarea con un resumen honesto: qué se hizo, qué se probó de verdad y qué no.
