@@ -1,0 +1,162 @@
+import io
+import os
+import tempfile
+
+os.environ['GASTOS_DATOS'] = tempfile.mkdtemp()
+os.environ.pop('ACCESS_TEAM', None)
+os.environ.pop('ACCESS_AUD', None)
+
+import pytest
+from fastapi.testclient import TestClient
+from PIL import Image
+
+import app as servidor
+
+
+@pytest.fixture()
+def c():
+    with TestClient(servidor.app) as cli:
+        yield cli
+
+
+def jpg(color='white', size=(40, 30)):
+    b = io.BytesIO()
+    Image.new('RGB', size, color).save(b, 'JPEG')
+    return b.getvalue()
+
+
+# ---- la app se sirve, pero SOLO lo permitido
+
+def test_sirve_la_app(c):
+    assert c.get('/').status_code == 200 and b'<html' in c.get('/').content
+    assert c.get('/app.js').headers['content-type'].startswith('text/javascript')
+    assert c.get('/icons/icon-192.png').status_code == 200
+    assert c.get('/rubros.js').status_code == 200
+
+
+def test_todo_lo_que_la_app_necesita_se_sirve(c):
+    """Cada script, hoja de estilo, icono y archivo del SHELL del service worker debe poder pedirse."""
+    import re
+    from pathlib import Path
+    raiz = Path(servidor.WEB)
+    html = (raiz / 'index.html').read_text(encoding='utf-8')
+    sw = (raiz / 'sw.js').read_text(encoding='utf-8')
+    pedidos = set(re.findall(r'(?:src|href)="([^"#:]+)"', html))
+    pedidos |= set(re.findall(r"'\./([^']+)'", sw.split('const SHELL')[1].split(']')[0]))
+    pedidos.discard('')
+    assert len(pedidos) >= 12
+    for ruta in sorted(pedidos):
+        assert c.get('/' + ruta).status_code == 200, ruta
+
+
+@pytest.mark.parametrize('ruta', [
+    '/PRIVADO/CONTEXTO-FINANCIERO.md', '/servidor/app.py', '/.git/config', '/docs/PROYECTO.md', '/CLAUDE.md',
+    '/../servidor/app.py', '/%2e%2e/servidor/app.py', '/icons/../servidor/app.py', '/icons/%2e%2e/CLAUDE.md',
+    '/vendor/../app.py', '/icons/x.py', '/vendor/pdf.min.js.map', '/README.md', '/.gitignore', '/api/nada'])
+def test_no_sirve_nada_mas(c, ruta):
+    r = c.get(ruta)
+    assert r.status_code == 404, ruta
+
+
+# ---- por el tunel solo con un JWT valido (sin configuracion de Access: se rechaza todo)
+
+@pytest.mark.parametrize('cabecera', [{'Cf-Connecting-Ip': '1.2.3.4'}, {'Cf-Ray': 'x'}, {'Cf-Access-Jwt-Assertion': 'a.b.c'}])
+def test_por_tunel_sin_jwt_valido(c, cabecera):
+    assert c.get('/api/estado', headers=cabecera).status_code == 403
+    assert c.get('/', headers=cabecera).status_code == 403          # tambien la app: va detras de Access
+    assert c.put('/api/estado', json={'rev': 0, 'datos': {}}, headers=cabecera).status_code == 403
+
+
+# ---- estado con control de versiones
+
+def test_estado_versionado(c):
+    assert c.get('/api/estado').json() == {'rev': 0, 'datos': None}
+    a = {'v': 3, 'expenses': [{'id': 'a'}]}
+    assert c.put('/api/estado', json={'rev': 0, 'datos': a}).json() == {'rev': 1}
+    b = {'v': 3, 'expenses': [{'id': 'a'}, {'id': 'b'}]}
+    assert c.put('/api/estado', json={'rev': 1, 'datos': b}).json() == {'rev': 2}
+    # otro dispositivo escribe sobre una version vieja: 409 y recibe lo vigente
+    r = c.put('/api/estado', json={'rev': 1, 'datos': a})
+    assert r.status_code == 409 and r.json()['rev'] == 2 and len(r.json()['datos']['expenses']) == 2
+    assert c.get('/api/estado').json()['datos'] == b
+
+
+def test_estado_invalido(c):
+    assert c.put('/api/estado', json={'rev': 0, 'datos': {'x': 1}}).status_code == 422
+    assert c.put('/api/estado', json={'rev': 0, 'datos': {'v': 3, 'expenses': 'no'}}).status_code == 422
+
+
+def test_historial_conserva_versiones(c):
+    rev = c.get('/api/estado').json()['rev']
+    for i in range(3):
+        rev = c.put('/api/estado', json={'rev': rev, 'datos': {'v': 3, 'expenses': [{'id': str(i)}]}}).json()['rev']
+    n = servidor.con().execute('SELECT COUNT(*) FROM estado_hist').fetchone()[0]
+    assert n >= 3
+
+
+# ---- fotos
+
+def test_fotos(c):
+    assert c.put('/api/fotos/ph_1', content=jpg()).status_code == 200
+    r = c.get('/api/fotos/ph_1')
+    assert r.status_code == 200 and r.headers['content-type'] == 'image/jpeg'
+    assert 'ph_1' in c.get('/api/fotos').json()
+    assert c.delete('/api/fotos/ph_1').status_code == 200 and c.get('/api/fotos/ph_1').status_code == 404
+
+
+def test_fotos_validan(c):
+    assert c.put('/api/fotos/ph_2', content=b'esto no es una imagen').status_code == 415
+    assert c.put('/api/fotos/ph_3', content=b'0' * (7 * 1024 * 1024)).status_code == 413
+    assert c.put('/api/fotos/..%2Fx', content=jpg()).status_code in (404, 405)
+    assert c.get('/api/fotos/a b').status_code == 404
+
+
+# ---- facturas: de la subida a la foto en el almacen de la app
+
+def _leer(c, monkeypatch, comercio, rubro_ia=None, color='red'):
+    import time
+    monkeypatch.setattr(servidor.lectura, 'ocr', lambda ruta: (f'{comercio}\nTOTAL 1,239.00', 0.95))
+    monkeypatch.setattr(servidor.lectura, 'ollama', lambda texto: {
+        'comercio': comercio, 'fecha': '2026-10-01', 'total': 123900, 'tipo': 'gasto', 'lineas': []})
+    monkeypatch.setattr(servidor.lectura, 'clasificar_llm', lambda comercio, lineas: rubro_ia)
+    fid = c.post('/api/facturas', files={'archivo': ('f.jpg', jpg(color), 'image/jpeg')}).json()['id']
+    for _ in range(200):
+        f = c.get(f'/api/facturas/{fid}').json()
+        if f['estado'] not in ('nueva', 'leyendo'):
+            return fid, f
+        time.sleep(0.05)
+    raise AssertionError('no termino de leerse')
+
+
+def test_rubro_por_palabras_clave(c, monkeypatch):
+    fid, f = _leer(c, monkeypatch, 'Supermercado Ejemplo', color='blue')
+    assert f['estado'] == 'listo' and f['campos']['rubro'] == 'super' and f['campos']['rubro_por'] == 'palabras'
+    assert f['campos']['categoria'] == 'super'
+
+
+def test_rubro_por_el_modelo_si_las_palabras_no_alcanzan(c, monkeypatch):
+    fid, f = _leer(c, monkeypatch, 'Negocio Raro SRL', rubro_ia='colmado', color='green')
+    assert f['campos']['rubro'] == 'colmado' and f['campos']['rubro_por'] == 'ia' and f['estado'] == 'listo'
+
+
+def test_sin_rubro_seguro_queda_en_revisar(c, monkeypatch):
+    fid, f = _leer(c, monkeypatch, 'Otro Negocio Raro', rubro_ia=None, color='yellow')
+    assert f['campos']['rubro'] is None and f['estado'] == 'revisar' and 'rubro_desconocido' in f['problemas']
+
+
+def test_factura_aplicada_copia_su_foto_y_aprende(c, monkeypatch):
+    fid, f = _leer(c, monkeypatch, 'Supermercado Ejemplo', color='purple')
+    # el usuario corrige el rubro: se aprende para ese comercio y manda sobre las palabras clave
+    r = c.put(f'/api/facturas/{fid}', json={'comercio': 'Supermercado Ejemplo', 'fecha': '2026-10-01', 'total': '1239.00', 'rubro': 'colmado'})
+    assert r.status_code == 200 and r.json()['campos']['categoria'] == 'super'
+    assert c.put(f'/api/facturas/{fid}', json={'comercio': 'x', 'fecha': '2026-10-01', 'total': '1.00', 'rubro': 'sueldo'}).status_code == 422
+    assert c.post(f'/api/facturas/{fid}/estado', json={'estado': 'aplicada'}).status_code == 200
+    assert c.get(f'/api/fotos/ph_f_{fid}').status_code == 200          # la foto ya esta en el almacen de la app
+    fid2, f2 = _leer(c, monkeypatch, 'Supermercado Ejemplo', color='orange')
+    assert f2['campos']['rubro'] == 'colmado' and f2['campos']['rubro_por'] == 'aprendido'
+
+
+def test_no_se_aplica_una_factura_sin_confirmar(c, monkeypatch):
+    fid, f = _leer(c, monkeypatch, 'Otro Negocio Mas', rubro_ia=None, color='black')
+    assert f['estado'] == 'revisar'
+    assert c.post(f'/api/facturas/{fid}/estado', json={'estado': 'aplicada'}).status_code == 409

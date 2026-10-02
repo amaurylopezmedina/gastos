@@ -36,6 +36,7 @@
   /* ---------------- Estado ---------------- */
 
   let state = load();
+  let syncReady = false;                   // true cuando SYNC.init ya corrió
   let cursor = startOfMonth(new Date());   // mes visible
   let draft = null;                        // gasto en edición dentro de la hoja
   let draftPhotoUrl = null;                // objectURL de la foto mostrada en la hoja
@@ -46,7 +47,7 @@
     const base = {
       v: 3, lang: null, currency: 'EUR', budget: 0,
       cats: DEFAULT_CATS.slice(), pays: DEFAULT_PAYS.slice(),
-      expenses: [], debts: [], imports: []
+      expenses: [], debts: [], imports: [], budgetLines: {}
     };
     if (!saved || typeof saved !== 'object') return base;
 
@@ -61,6 +62,7 @@
       v: 3,
       debts: Array.isArray(saved.debts) ? saved.debts : [],
       imports: Array.isArray(saved.imports) ? saved.imports : [],
+      budgetLines: saved.budgetLines && typeof saved.budgetLines === 'object' && !Array.isArray(saved.budgetLines) ? saved.budgetLines : {},
       lang: typeof saved.lang === 'string' ? saved.lang : null,
       currency: typeof saved.currency === 'string' ? saved.currency : base.currency,
       budget: Number.isFinite(saved.budget) ? saved.budget : 0,
@@ -87,6 +89,7 @@
     } catch (err) {
       toast(t('msg.full'));
     }
+    if (syncReady) window.SYNC.changed();
   }
 
   /* ---------------- Fotos (IndexedDB) ---------------- */
@@ -119,10 +122,32 @@
     }));
   }
 
-  const photoGet = (id) => photoOp('readonly', (s) => s.get(id));
-  const photoPut = (id, blob) => photoOp('readwrite', (s) => s.put(blob, id));
-  const photoDel = (id) => photoOp('readwrite', (s) => s.delete(id));
-  const photoKeys = () => photoOp('readonly', (s) => s.getAllKeys());
+  // IndexedDB es la copia local; la verdad está en el servidor (sync.js).
+  const photoLocalGet = (id) => photoOp('readonly', (s) => s.get(id));
+  const photoLocalPut = (id, blob) => photoOp('readwrite', (s) => s.put(blob, id));
+  const photoLocalDel = (id) => photoOp('readwrite', (s) => s.delete(id));
+  const photoLocalKeys = () => photoOp('readonly', (s) => s.getAllKeys());
+
+  async function photoGet(id) {
+    let blob = await photoLocalGet(id).catch(() => null);
+    if (blob) return blob;
+    blob = await window.SYNC.photoDown(id);
+    if (blob) await photoLocalPut(id, blob).catch(() => {});
+    return blob;
+  }
+  async function photoPut(id, blob) {
+    await photoLocalPut(id, blob);
+    await window.SYNC.photoPut(id, blob);     // si no hay red queda pendiente y se sube luego
+  }
+  async function photoDel(id) {
+    await photoLocalDel(id).catch(() => {});
+    await window.SYNC.photoDelete(id);
+  }
+  async function photoKeys() {
+    const local = await photoLocalKeys().catch(() => []);
+    const remote = await window.SYNC.photoIds();
+    return Array.from(new Set(local.concat(remote)));
+  }
 
   /* Las fotos del iPhone pesan varios MB: se reescalan y recomprimen antes
      de guardarlas, o el almacén se llena enseguida. */
@@ -238,10 +263,13 @@
     return c ? label(c, 'cat') : t('cat.none');
   };
 
-  function expensesOfMonth(d) {
+  function entriesOfMonth(d) {
     const k = monthKey(d);
     return state.expenses.filter((e) => e.date.slice(0, 7) === k);
   }
+  const isIncome = (e) => e.kind === 'income';
+  // «Gastos» no incluye los ingresos: así ningún total del mes los mezcla.
+  const expensesOfMonth = (d) => entriesOfMonth(d).filter((e) => !isIncome(e));
   const sum = (list) => list.reduce((total, e) => total + e.cents, 0);
 
   let toastTimer = null;
@@ -260,13 +288,14 @@
   /* ---------------- Render: lista ---------------- */
 
   function renderList() {
+    const all = entriesOfMonth(cursor);
     const mine = expensesOfMonth(cursor);
     const total = sum(mine);
 
     const monthLabel = cap(monthFmt.format(cursor));
     $('#monthName').textContent = monthLabel;
     $('#monthName2').textContent = monthLabel;
-    $('#monthSub').textContent = mine.length ? tn('list.count', mine.length) : '';
+    $('#monthSub').textContent = all.length ? tn('list.count', all.length) : '';
     $('#monthTotal').textContent = fmt(total);
 
     // Presupuesto
@@ -287,7 +316,7 @@
 
     // Agrupado por día, más reciente primero
     const byDay = new Map();
-    for (const e of mine) {
+    for (const e of all) {
       if (!byDay.has(e.date)) byDay.set(e.date, []);
       byDay.get(e.date).push(e);
     }
@@ -295,7 +324,7 @@
 
     const body = $('#listBody');
     body.textContent = '';
-    $('#listEmpty').hidden = mine.length > 0;
+    $('#listEmpty').hidden = all.length > 0;
 
     for (const day of days) {
       const items = byDay.get(day).sort((a, b) => (b.ts || 0) - (a.ts || 0));
@@ -304,7 +333,7 @@
       head.className = 'day-head';
       head.innerHTML = '<span></span><b></b>';
       head.firstChild.textContent = dayLabel(day);
-      head.lastChild.textContent = fmt(sum(items));
+      head.lastChild.textContent = fmt(sum(items.filter((e) => !isIncome(e))));
       body.appendChild(head);
 
       const group = document.createElement('div');
@@ -319,8 +348,8 @@
           '<span class="item-ico"></span>' +
           '<span class="item-main"><span class="item-cat"></span><span class="item-note"></span></span>' +
           '<span class="item-amount"></span>';
-        row.querySelector('.item-ico').textContent = cat ? cat.icon : '\u{2753}';
-        row.querySelector('.item-cat').textContent = catName(e.cat);
+        row.querySelector('.item-ico').textContent = isIncome(e) ? '\u{1F4B0}' : (cat ? cat.icon : '\u{2753}');
+        row.querySelector('.item-cat').textContent = e.rubro && window.RUBROS.get(e.rubro) ? window.RUBROS.name(e.rubro) : catName(e.cat);
 
         // Subtítulo: nota + forma de pago + clip si hay foto adjunta.
         const bits = [];
@@ -330,7 +359,9 @@
         const note = row.querySelector('.item-note');
         if (bits.length) note.textContent = bits.join('  ·  '); else note.remove();
 
-        row.querySelector('.item-amount').textContent = fmt(e.cents);
+        const amount = row.querySelector('.item-amount');
+        amount.textContent = (isIncome(e) ? '+' : '') + fmt(e.cents);
+        if (isIncome(e)) amount.classList.add('income');
         group.appendChild(row);
       }
       body.appendChild(group);
@@ -548,6 +579,7 @@
     renderStats();
     renderSettings();
     if (window.LOANS) window.LOANS.render();
+    if (window.PRESUPUESTO) window.PRESUPUESTO.render();
   }
 
   /* ---------------- Hoja: añadir / editar ---------------- */
@@ -565,6 +597,8 @@
           id: expense.id,
           raw: (expense.cents / 100).toFixed(2),
           cat: expense.cat,
+          kind: expense.kind === 'income' ? 'income' : 'expense',
+          rubro: expense.rubro || null,
           pay: expense.pay || state.pays[0].id,
           date: expense.date,
           note: expense.note || '',
@@ -573,7 +607,7 @@
           dropPhoto: false
         }
       : {
-          id: null, raw: '', cat: state.cats[0].id, pay: state.pays[0].id,
+          id: null, raw: '', cat: state.cats[0].id, kind: 'expense', rubro: null, pay: state.pays[0].id,
           date: ymd(new Date()), note: '', photo: null,
           newPhoto: pendingPhoto || null, dropPhoto: false
         };
@@ -611,7 +645,36 @@
     return el;
   }
 
+  // Gasto / ingreso y rubro del presupuesto. El rubro fija la categoría de siempre.
+  function renderKindRubro() {
+    const income = draft.kind === 'income';
+    $('#kindExpense').classList.toggle('on', !income);
+    $('#kindIncome').classList.toggle('on', income);
+    $('#catPicker').hidden = income;
+    $('#catLabel').hidden = income;
+    const sel = $('#rubroSelect');
+    sel.textContent = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = t('rubro.none');
+    sel.appendChild(none);
+    for (const g of window.RUBROS.groups) {
+      if (Boolean(g.income) !== income) continue;
+      const og = document.createElement('optgroup');
+      og.label = g.icon + ' ' + window.RUBROS.groupName(g.id);
+      for (const r of window.RUBROS.ofGroup(g.id)) {
+        const o = document.createElement('option');
+        o.value = r.id;
+        o.textContent = window.RUBROS.name(r.id);
+        og.appendChild(o);
+      }
+      sel.appendChild(og);
+    }
+    sel.value = draft.rubro && Array.from(sel.options).some((o) => o.value === draft.rubro) ? draft.rubro : '';
+  }
+
   function renderPickers() {
+    renderKindRubro();
     const cats = $('#catPicker');
     cats.textContent = '';
     for (const c of state.cats) {
@@ -709,13 +772,16 @@
       await photoDel(draft.photo).catch(() => {});
     }
 
+    const income = draft.kind === 'income';
+    const cat = income ? (state.cats.some((c) => c.id === 'otros') ? 'otros' : state.cats[0].id) : draft.cat;
+    const extra = { kind: income ? 'income' : undefined, rubro: draft.rubro || undefined };
     if (isEdit) {
       const e = state.expenses.find((x) => x.id === draft.id);
-      if (e) Object.assign(e, { cents, cat: draft.cat, pay: draft.pay, date, note, photo: photoId });
+      if (e) Object.assign(e, { cents, cat, pay: draft.pay, date, note, photo: photoId }, extra);
     } else {
-      state.expenses.push({
-        id: uid(), cents, cat: draft.cat, pay: draft.pay, date, note, photo: photoId, ts: Date.now()
-      });
+      state.expenses.push(Object.assign({
+        id: uid(), cents, cat, pay: draft.pay, date, note, photo: photoId, ts: Date.now()
+      }, extra));
     }
     save();
     // Salta al mes del gasto para que siempre quede a la vista.
@@ -852,7 +918,8 @@
       try { data = JSON.parse(String(reader.result)); } catch (_) { return toast(t('msg.badFile')); }
       if (!data || typeof data !== 'object') return toast(t('msg.badFile'));
       // Una copia puede traer solo deudas, solo gastos, o ambas cosas.
-      if (!Array.isArray(data.expenses) && !Array.isArray(data.debts)) return toast(t('msg.badFile'));
+      const lines = data.budgetLines && typeof data.budgetLines === 'object' ? data.budgetLines : null;
+      if (!Array.isArray(data.expenses) && !Array.isArray(data.debts) && !lines) return toast(t('msg.badFile'));
 
       const incoming = (data.expenses || []).filter(validExpense);
       const known = new Set(state.expenses.map((e) => e.id));
@@ -889,6 +956,13 @@
       merge(state.cats, data.cats);
       merge(state.pays, data.pays);
       merge(state.imports, data.imports);
+      if (lines) {                       // presupuesto por rubros: lo que ya tienes puesto no se pisa
+        for (const [id, cents] of Object.entries(lines)) {
+          if (window.RUBROS.get(id) && Number.isFinite(cents) && cents >= 0 && state.budgetLines[id] === undefined) {
+            state.budgetLines[id] = Math.round(cents);
+          }
+        }
+      }
 
       for (const debt of freshDebts) {
         state.debts.push(Object.assign({
@@ -923,7 +997,7 @@
     fmt: fmt,
     toast: toast,
     currency: () => state.currency,
-    expenses: () => state.expenses,
+    expenses: () => state.expenses.filter((e) => !isIncome(e)),
     pays: () => state.pays,
     payName: (p) => label(p, 'pay'),
     catName: (id) => catName(id),
@@ -936,6 +1010,10 @@
   });
 
   /* ---------------- Deudas ---------------- */
+
+  // Importe como texto editable, con el separador decimal del idioma: es lo que parseNumber vuelve a leer.
+  // Escribir aquí «1239.00» en español se leería como 123900 (el punto sería de miles).
+  const amountText = (cents) => (cents / 100).toFixed(2).replace('.', decimalSep);
 
   function parseNumber(text) {
     const raw = String(text || '').trim().replace(/[^\d.,-]/g, '');
@@ -973,7 +1051,7 @@
     addExpense: (row) => {
       state.expenses.push({
         id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
-        date: ymd(new Date()), note: row.note, photo: null, src: 'debt', ts: Date.now()
+        date: ymd(new Date()), note: row.note, photo: null, src: 'debt', rubro: 'cuotas', ts: Date.now()
       });
       save();
       renderList();
@@ -1031,11 +1109,9 @@
     toast: toast,
     fmt: fmt,
     shrink: shrink,
-    photoPut: photoPut,
     parseAmount: (text) => Math.round(parseNumber(text) * 100),
-    cats: () => state.cats,
+    amountText: (cents) => amountText(cents),
     pays: () => state.pays,
-    catName: (id) => catName(id),
     payName: (p) => label(p, 'pay'),
     hasExpense: (id) => state.expenses.some((e) => e.id === id),
     addExpense: (e) => {
@@ -1043,6 +1119,31 @@
       save();
       cursor = startOfMonth(parseDate(e.date));
       renderAll();
+    }
+  });
+
+  /* ---------------- Presupuesto por rubros ---------------- */
+
+  window.PRESUPUESTO.init({
+    t: t,
+    fmt: fmt,
+    toast: toast,
+    parseAmount: (text) => Math.round(parseNumber(text) * 100),
+    amountText: (cents) => amountText(cents),
+    month: () => cursor,
+    monthLabel: () => cap(monthFmt.format(cursor)),
+    shiftMonth: (n) => { shiftMonth(n); },
+    entries: (d) => entriesOfMonth(d),
+    isIncome: isIncome,
+    debts: () => state.debts,
+    lines: () => state.budgetLines,
+    setLine: (id, cents) => {
+      if (cents > 0) state.budgetLines[id] = cents; else delete state.budgetLines[id];
+      save();
+    },
+    openExpense: (id) => {
+      const e = state.expenses.find((x) => x.id === id);
+      if (e) openSheet(e);
     }
   });
 
@@ -1092,12 +1193,14 @@
     $('#openAdd').hidden = !canAdd;
     $('#openCam').hidden = !canAdd;
     if (name === 'debts') window.LOANS.render();
+    if (name === 'budget') window.PRESUPUESTO.render();
   }
 
   function shiftMonth(n) {
     cursor = addMonths(cursor, n);
     renderList();
     renderStats();
+    if (window.PRESUPUESTO) window.PRESUPUESTO.render();
   }
 
   function setLanguage(code) {
@@ -1119,7 +1222,21 @@
   $$('.tab[data-go]').forEach((tab) => tab.addEventListener('click', () => go(tab.dataset.go)));
 
   $('#openAdd').addEventListener('click', () => openSheet(null));
-  $('#openCam').addEventListener('click', () => pickPhoto('new'));
+  // La cámara manda la factura a la IA del servidor; el «+» sigue siendo apuntar a mano.
+  $('#openCam').addEventListener('click', () => $('#aiFile').click());
+  $('#aiFile').addEventListener('change', (ev) => {
+    const file = ev.target.files[0];
+    ev.target.value = '';
+    if (file) window.BANDEJA.send(file);
+  });
+  $('#kindExpense').addEventListener('click', () => { draft.kind = 'expense'; draft.rubro = null; renderPickers(); });
+  $('#kindIncome').addEventListener('click', () => { draft.kind = 'income'; draft.rubro = null; renderPickers(); });
+  $('#rubroSelect').addEventListener('change', (ev) => {
+    draft.rubro = ev.target.value || null;
+    const cat = draft.rubro && window.RUBROS.catOf(draft.rubro);
+    if (cat && state.cats.some((c) => c.id === cat)) draft.cat = cat;
+    renderPickers();
+  });
   $('#attachPhoto').addEventListener('click', () => pickPhoto('sheet'));
   $('#photoDel').addEventListener('click', () => {
     draft.newPhoto = null;
@@ -1231,6 +1348,33 @@
   window.I18N.apply();
   renderAll();
   go('stats');   // el resumen del mes es lo primero que se ve al abrir
+
+  /* ---------------- Sincronización con el servidor ---------------- */
+
+  function reloadFromStorage() {
+    state = load();
+    window.I18N.set(window.I18N.detect(state.lang));
+    window.I18N.apply();
+    renderAll();
+  }
+
+  window.SYNC.init({
+    getState: () => state,
+    hasData: () => state.expenses.length > 0 || state.debts.length > 0 || Object.keys(state.budgetLines).length > 0,
+    replaceState: (datos) => {
+      try { localStorage.setItem(KEY, JSON.stringify(datos)); } catch (_) { return; }
+      reloadFromStorage();
+    },
+    onConflict: (server) => {
+      window.SYNC.resolve(server, confirm(t('sync.conflict')));
+    },
+    synced: (ok) => {
+      const el = $('#syncNote');
+      if (el) el.textContent = t(ok ? 'sync.ok' : 'sync.pending');
+    },
+    photoLocalGet: photoLocalGet
+  });
+  syncReady = true;
 
   // Pide almacenamiento persistente: reduce el riesgo de que iOS purgue los datos.
   if (navigator.storage && navigator.storage.persist) {

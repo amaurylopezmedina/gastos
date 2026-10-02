@@ -622,3 +622,35 @@ button.rec-row:active { background: var(--surface-2); }
 #bndSheet { z-index: 11; }
 .bnd-photo { display: block; max-width: 100%; max-height: 220px; margin: 8px auto; border-radius: 12px; }
 .bnd-problems { margin: 4px 0 10px; padding: 10px 14px 10px 30px; background: var(--surface); border-radius: 12px; color: var(--danger); font-size: 14px; }
+
+/* ---------- Presupuesto, ingresos y aviso de la bandeja ---------- */
+.bnd-banner { display: block; width: calc(100% - 32px); margin: 12px 16px 0; padding: 12px 14px; border-radius: 14px; background: var(--surface); color: var(--accent); font-weight: 600; text-align: left; }
+.item-amount.income { color: var(--good); }
+.kind-toggle { display: flex; gap: 6px; margin: 4px 0 8px; padding: 3px; background: var(--surface); border-radius: 12px; }
+.kind-toggle button { flex: 1; padding: 8px; border-radius: 9px; color: var(--text-dim); font-weight: 600; }
+.kind-toggle button.on { background: var(--bg); color: var(--text); box-shadow: var(--shadow); }
+.rubro-select { width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 12px; background: var(--surface); color: var(--text); font-size: 16px; border: 0; }
+.bud-card { margin: 12px 16px; padding: 6px 14px; background: var(--surface); border-radius: 16px; }
+.bud-sum { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.bud-sum:last-child { border-bottom: 0; }
+.bud-sum-r { font-weight: 650; font-variant-numeric: tabular-nums; }
+.bud-sum-b { color: var(--text-dim); font-size: 13px; min-width: 70px; text-align: right; }
+.bud-sum.strong { font-size: 17px; }
+.bud-sum.neg .bud-sum-r { color: var(--danger); }
+.bud-group { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; width: calc(100% - 32px); margin: 8px 16px 0; padding: 12px 14px; background: var(--surface); border-radius: 14px; text-align: left; }
+.bud-group.open { border-radius: 14px 14px 0 0; }
+.bud-group.sin { color: var(--danger); }
+.bud-g-name { font-weight: 650; }
+.bud-g-nums { font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: 14px; }
+.bud-group .bud-bar { grid-column: 1 / -1; }
+.bud-bar { height: 6px; background: rgba(128, 128, 128, .22); border-radius: 3px; overflow: hidden; }
+.bud-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.bud-fill.warn { background: #e0a030; }
+.bud-fill.over, .bud-fill.nobudget { background: var(--danger); }
+.bud-rubro { display: grid; grid-template-columns: 1fr auto auto; gap: 4px 12px; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.bud-rubro:last-child { border-bottom: 0; }
+.bud-rubro .bud-bar { grid-column: 1 / -1; height: 4px; }
+.bud-r-real { font-variant-numeric: tabular-nums; font-weight: 600; }
+.bud-r-budget { color: var(--accent); font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
+.bud-r-budget:disabled { color: var(--text-dim); }
+#view-budget .group { margin: 0 16px; border-radius: 0 0 14px 14px; }

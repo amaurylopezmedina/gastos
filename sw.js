@@ -1,6 +1,6 @@
 /* Service worker: app shell en caché para que funcione sin conexión.
    Sube CACHE al publicar cambios y los clientes se actualizarán solos. */
-const CACHE = 'gastos-v17';
+const CACHE = 'gastos-v18';
 
 const SHELL = [
   './',
@@ -10,7 +10,10 @@ const SHELL = [
   './statement.js',
   './reconcile.js',
   './loans.js',
+  './rubros.js',
+  './sync.js',
   './bandeja.js',
+  './presupuesto.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
@@ -52,6 +55,9 @@ self.addEventListener('fetch', (ev) => {
         .then((res) => {
           // Solo una respuesta válida sustituye a la app guardada: un 404 (o una
           // redirección de login) jamás debe quedar como si fuera la app.
+          // El login de Access llega como redirección a otro origen: se enseña tal cual (para
+          // poder entrar) pero jamás se guarda como si fuera la app.
+          if (res.redirected && new URL(res.url).origin !== self.location.origin) return res;
           if (!res.ok) return caches.match('./index.html').then((hit) => hit || res);
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put('./index.html', copy));

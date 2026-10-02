@@ -3,7 +3,7 @@ import verificar as v
 
 HOY = date(2026, 10, 2)
 TXT = "AUTORREPUESTO EJEMPLO\nPORTA ESCOBILLAS 1,500.00\nMANO DE OBRA 2,000.00\nTOTAL 3,500.00"
-BASE = {'comercio': 'Autorrepuesto Ejemplo', 'fecha': '2026-10-02', 'categoria': 'transpor',
+BASE = {'comercio': 'Autorrepuesto Ejemplo', 'fecha': '2026-10-02', 'rubro': 'mant_veh',
         'total': 350000, 'lineas': [{'desc': 'a', 'cents': 150000}, {'desc': 'b', 'cents': 200000}]}
 
 
@@ -47,8 +47,11 @@ def test_ocr_poco_seguro_y_sin_comercio():
     assert 'ocr_poco_seguro' in p and 'sin_comercio' in p
 
 
-def test_categoria_inventada():
-    assert 'categoria_desconocida' in v.verificar(dict(BASE, categoria='viajes'), TXT, 0.95, HOY)
+def test_rubro_inventado_o_no_clasificable_por_la_ia():
+    assert 'rubro_desconocido' in v.verificar(dict(BASE, rubro='viajes'), TXT, 0.95, HOY)
+    assert 'rubro_desconocido' in v.verificar(dict(BASE, rubro='sueldo'), TXT, 0.95, HOY)    # ingreso
+    assert 'rubro_desconocido' in v.verificar(dict(BASE, rubro='cuotas'), TXT, 0.95, HOY)    # deudas
+    assert 'rubro_desconocido' in v.verificar(dict(BASE, rubro=None), TXT, 0.95, HOY)
 
 
 def test_total_dentro_de_otro_numero_no_cuenta():

@@ -1,6 +1,14 @@
 # Diseño: fotos → OCR + Ollama → app
 
-**Estado: servidor y bandeja construidos y probados en local; falta publicar el túnel con Access.** Concreta las fases 2 y 3 de `PLAN-DASHBOARD-LOCAL.md` con las
+**Estado (2026-10-02): construido y probado en local; falta desplegar el servicio nuevo y migrar los datos.**
+
+> **Cambio de rumbo.** GitHub Pages se apagó. La app y los datos viven ahora en el servidor de casa:
+> `gastos.iterakore.com` (todo detrás de Cloudflare Access) sirve la propia PWA y la API (`/api`) desde el
+> mismo origen, así que ya no hay CORS ni service token en el navegador. Los datos de la app (gastos, deudas,
+> presupuesto por rubros) son un estado JSON versionado en SQLite (`/api/estado`, se conservan las últimas 400
+> versiones); este dispositivo guarda una copia local para abrir al instante y trabajar sin conexión
+> (`sync.js`). Las secciones de abajo que hablan de «PWA en github.io» y del service token son del diseño
+> anterior y quedan como historia. Concreta las fases 2 y 3 de `PLAN-DASHBOARD-LOCAL.md` con las
 decisiones tomadas. No contiene datos personales: el subdominio, el correo de acceso y las
 credenciales viven en `PRIVADO/`.
 

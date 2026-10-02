@@ -35,14 +35,19 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v17`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v18`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
    puerto 5190; el 5173 lo usa otro servicio de esta máquina) antes de publicar, y otra vez contra el sitio real después. El panel de vista
    previa cachea fuerte: desregistra el service worker y borra cachés, o pide los archivos con
    `fetch(..., {cache:'reload'})`.
-3. Commit + `git push origin main`. (Con Pages apagado, el despliegue real es en el servidor de casa.)
+3. Commit + `git push origin main`. **El despliegue es el propio árbol de trabajo**: la API
+   (`servidor/`, servicio `gastos-api`) sirve los archivos de la app desde esta carpeta, sin build, y los
+   pide en cada visita. Si cambias `servidor/*.py`: `systemctl --user restart gastos-api`. Pruebas del
+   servidor: `cd servidor && ~/finanzas/venv/bin/python -m pytest` (66, incluyen que `PRIVADO/`, `.git` y
+   `servidor/` jamás se sirven). Para probar la app en Chrome sin tocar datos reales: `GASTOS_DATOS=<tmp>
+   uvicorn app:app --port 8421` desde `servidor/` y Playwright con `/usr/bin/google-chrome`.
 4. Pie de Ajustes: muestra la versión real (`Gastos · vNN`). Sirve para que el usuario compruebe
    si su teléfono tiene la última.
 5. Termina cada tarea con un resumen honesto: qué se hizo, qué se probó de verdad y qué no.
@@ -60,6 +65,17 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 - **Mensajes de commit en PowerShell:** usa here-string `@' ... '@` y **no pongas comillas dobles**
   dentro; una vez rompieron el comando.
 - **Dinero en céntimos enteros**, nunca flotantes.
+- **Un importe puesto en un campo de texto se escribe con `amountText()`** (separador decimal del idioma),
+  nunca con `toFixed(2)` a pelo: en español «1239.00» se lee como 123900 (el punto es de miles) y el gasto
+  sale 100 veces mayor. Pasó en la bandeja; ahora además se comprueba que lo confirmado por el servidor
+  sea exactamente lo que se apunta. Al servidor sí se le manda con punto (`a_centimos` lo entiende).
+- **Esta máquina comparte CPU** (ERP, correo, otros proyectos). Ollama va con `num_thread` 4: con todos los
+  hilos, 12 tokens tardaron 35 s; con 4, 1.4 s. La IA solo *propone*: nada se apunta sin confirmar.
+- **El modelo de 3B no puede elegir entre 52 rubros dentro de la extracción** (puso un id como nombre del
+  comercio). Por eso el rubro se decide aparte: lo aprendido > palabras clave (`reglas_rubro.py`) > una
+  llamada corta al modelo > el usuario.
+- **Todo archivo nuevo de la app hay que añadirlo a `WEB_ARCHIVOS` en `servidor/app.py`** y al `SHELL` del
+  service worker; una prueba comprueba que todo lo que cita `index.html` se sirva.
 - **Todo texto de interfaz va por `i18n.js`** (es/en, plurales `.one`/`.other`). Las categorías y
   formas de pago estándar llevan `std:true` y su nombre sale del idioma activo.
 - **Importes:** `CURRENCY_LOCALE` en `app.js` da el formato del país de la moneda
@@ -79,7 +95,10 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | `app.js` | Estado, render, cámara, import/export, puentes con los demás módulos |
 | `statement.js` | Lector de estados de cuenta en PDF y pantalla de revisión (varios archivos) |
 | `reconcile.js` | Conciliar un estado con lo ya apuntado (no importa nada) |
-| `bandeja.js` | Facturas con IA: sube fotos al servidor de casa, bandeja de revisión, aplica gastos con id fijo |
+| `sync.js` | Datos en el servidor (`/api/estado`, versión optimista, conflictos) y fotos; copia local para trabajar sin conexión |
+| `rubros.js` | Las 59 líneas del presupuesto en 10 secciones (sin importes). El servidor la lee: es la única fuente |
+| `presupuesto.js` | Pestaña Presupuesto: presupuestado contra real por rubro; Deudas sale de la pestaña Deudas |
+| `bandeja.js` | Facturas con IA: foto → servidor → bandeja de revisión → gasto con id fijo y rubro |
 | `servidor/` | API de facturas (FastAPI + OCR + Ollama + verificador). Corre en la máquina de casa; datos fuera del repo (`~/finanzas`). Ver `docs/PLAN-FOTOS-IA.md` |
 | `loans.js` | Deudas: cuota, amortización, consolidado, calendario mensual, avisos, `.ics` |
 | `i18n.js` | Traducciones |

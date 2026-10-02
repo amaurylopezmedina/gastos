@@ -5,7 +5,7 @@ import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
-CATEGORIAS = ('comida', 'super', 'transpor', 'casa', 'ocio', 'salud', 'ropa', 'subs', 'banco', 'otros')
+import rubros
 
 
 def a_centimos(valor):
@@ -106,8 +106,8 @@ def verificar(campos, texto_ocr, confianza, hoy=None):
         p.append('sin_comercio')
     if fecha_valida(campos.get('fecha'), hoy) is None:
         p.append('fecha_invalida')
-    if campos.get('categoria') not in CATEGORIAS:
-        p.append('categoria_desconocida')
+    if campos.get('rubro') not in rubros.IDS_GASTO:      # la categoria de la app se deduce del rubro
+        p.append('rubro_desconocido')
     if campos.get('tipo', 'gasto') != 'gasto':        # un ingreso lo decide una persona, nunca la IA sola
         p.append('tipo_a_confirmar')
     if confianza is not None and confianza < 0.80:
