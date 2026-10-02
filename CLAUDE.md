@@ -1,7 +1,7 @@
 # Gastos — instrucciones para Claude
 
 PWA de gastos personales para iPhone. **GitHub Pages está APAGADO desde el 2026-10-02** (el usuario
-quiere que la app se sirva solo desde su servidor, `gastos.iterakore.com`, detrás de Cloudflare
+quiere que la app se sirva solo desde su servidor, su subdominio privado (anotado en `PRIVADO/CONFIG-SERVIDOR.md`), detrás de Cloudflare
 Access; ver `docs/PLAN-FOTOS-IA.md`). Para reactivarlo: `gh api -X POST repos/amaurylopezmedina/gastos/pages
 -f 'source[branch]=main' -f 'source[path]=/'`. Repo: `amaurylopezmedina/gastos` (**PÚBLICO**).
 Un iPhone con la app ya instalada la sigue abriendo desde su caché (v17 no sustituye la app por un 404).

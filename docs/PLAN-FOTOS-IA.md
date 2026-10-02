@@ -3,7 +3,7 @@
 **Estado (2026-10-02): construido y probado en local; falta desplegar el servicio nuevo y migrar los datos.**
 
 > **Cambio de rumbo.** GitHub Pages se apagó. La app y los datos viven ahora en el servidor de casa:
-> `gastos.iterakore.com` (todo detrás de Cloudflare Access) sirve la propia PWA y la API (`/api`) desde el
+> el subdominio privado de Gastos (en `PRIVADO/CONFIG-SERVIDOR.md`; todo detrás de Cloudflare Access) sirve la propia PWA y la API (`/api`) desde el
 > mismo origen, así que ya no hay CORS ni service token en el navegador. Los datos de la app (gastos, deudas,
 > presupuesto por rubros) son un estado JSON versionado en SQLite (`/api/estado`, se conservan las últimas 400
 > versiones); este dispositivo guarda una copia local para abrir al instante y trabajar sin conexión
