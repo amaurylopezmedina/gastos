@@ -105,7 +105,9 @@ window.I18N = (() => {
       'ask.removePay': '¿Quitar esta forma de pago?',
       'ask.removeCatUsed': 'Hay {n} gasto(s) con esta categoría. Se quedarán sin categoría. ¿Quitarla igualmente?',
       'ask.removePayUsed': 'Hay {n} gasto(s) con esta forma de pago. Se quedarán sin forma de pago. ¿Quitarla igualmente?',
-      'ask.import': 'El archivo tiene {total} gasto(s). Se añadirán {fresh} nuevos (los repetidos se ignoran). ¿Continuar?',
+      'ask.import': 'El archivo trae {total} gasto(s) y {debts} deuda(s). Se añadirán {fresh} gastos nuevos y las deudas que aún no tengas; lo repetido se ignora. ¿Continuar?',
+      'msg.importedDebts.one': '1 deuda importada',
+      'msg.importedDebts.other': '{n} deudas importadas',
       'ask.wipe1': 'Se borrarán TODOS los gastos y sus fotos de este dispositivo. ¿Seguro?',
       'ask.wipe2': 'Esta acción no se puede deshacer. ¿Confirmas?',
 
@@ -342,7 +344,9 @@ window.I18N = (() => {
       'ask.removePay': 'Remove this payment method?',
       'ask.removeCatUsed': '{n} expense(s) use this category. They will be left without one. Remove it anyway?',
       'ask.removePayUsed': '{n} expense(s) use this payment method. They will be left without one. Remove it anyway?',
-      'ask.import': 'The file holds {total} expense(s). {fresh} new ones will be added (duplicates are skipped). Continue?',
+      'ask.import': 'The file holds {total} expense(s) and {debts} debt(s). {fresh} new expenses will be added, plus any debt you do not have yet; duplicates are skipped. Continue?',
+      'msg.importedDebts.one': '1 debt imported',
+      'msg.importedDebts.other': '{n} debts imported',
       'ask.wipe1': 'This deletes ALL expenses and their photos from this device. Are you sure?',
       'ask.wipe2': 'This cannot be undone. Confirm?',
 

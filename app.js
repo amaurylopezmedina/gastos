@@ -70,6 +70,12 @@
     };
   }
 
+  function validDebt(d) {
+    return d && typeof d === 'object' && typeof d.name === 'string' && d.name.trim()
+      && Number.isFinite(d.balance) && d.balance >= 0
+      && Number.isFinite(d.payment) && d.payment > 0;
+  }
+
   function validExpense(e) {
     return e && typeof e.id === 'string' && Number.isFinite(e.cents)
       && typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date);
@@ -844,13 +850,24 @@
     reader.onload = async () => {
       let data;
       try { data = JSON.parse(String(reader.result)); } catch (_) { return toast(t('msg.badFile')); }
-      if (!data || !Array.isArray(data.expenses)) return toast(t('msg.badFile'));
+      if (!data || typeof data !== 'object') return toast(t('msg.badFile'));
+      // Una copia puede traer solo deudas, solo gastos, o ambas cosas.
+      if (!Array.isArray(data.expenses) && !Array.isArray(data.debts)) return toast(t('msg.badFile'));
 
-      const incoming = data.expenses.filter(validExpense);
+      const incoming = (data.expenses || []).filter(validExpense);
       const known = new Set(state.expenses.map((e) => e.id));
       const fresh = incoming.filter((e) => !known.has(e.id));
 
-      if (!confirm(t('ask.import', { total: incoming.length, fresh: fresh.length }))) return;
+      // Las deudas van por nombre además de por id: una copia preparada aparte
+      // no comparte los identificadores de las que ya tienes.
+      const debtNames = new Set(state.debts.map((d) => String(d.name || '').toLowerCase()));
+      const debtIds = new Set(state.debts.map((d) => d.id));
+      const freshDebts = (Array.isArray(data.debts) ? data.debts : []).filter((d) =>
+        validDebt(d) && !debtIds.has(d.id) && !debtNames.has(String(d.name).toLowerCase()));
+
+      if (!confirm(t('ask.import', {
+        total: incoming.length, fresh: fresh.length, debts: freshDebts.length
+      }))) return;
 
       // Restaura las fotos que vengan en la copia.
       const photos = data.photos && typeof data.photos === 'object' ? data.photos : {};
@@ -871,10 +888,20 @@
       };
       merge(state.cats, data.cats);
       merge(state.pays, data.pays);
+      merge(state.imports, data.imports);
+
+      for (const debt of freshDebts) {
+        state.debts.push(Object.assign({
+          id: uid(), kind: 'loan', principal: debt.balance, rate: 0, term: 0,
+          dueDay: 1, pay: null, paid: [], cat: state.cats.some((c) => c.id === 'banco') ? 'banco' : state.cats[0].id
+        }, debt));
+      }
 
       save();
       renderAll();
-      toast(tn('msg.imported', fresh.length));
+      toast(freshDebts.length && !fresh.length
+        ? tn('msg.importedDebts', freshDebts.length)
+        : tn('msg.imported', fresh.length));
     };
     reader.readAsText(file);
   }
