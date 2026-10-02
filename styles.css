@@ -616,3 +616,9 @@ button.rec-row:active { background: var(--surface-2); }
   box-shadow: 0 6px 20px rgba(0, 0, 0, .3);
   animation: fade .2s ease;
 }
+
+/* ---------- Bandeja de facturas ---------- */
+#bndBackdrop { z-index: 10; }
+#bndSheet { z-index: 11; }
+.bnd-photo { display: block; max-width: 100%; max-height: 220px; margin: 8px auto; border-radius: 12px; }
+.bnd-problems { margin: 4px 0 10px; padding: 10px 14px 10px 30px; background: var(--surface); border-radius: 12px; color: var(--danger); font-size: 14px; }

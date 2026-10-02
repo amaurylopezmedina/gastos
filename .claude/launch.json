@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "gastos",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5173", "--bind", "127.0.0.1"],
-      "port": 5173
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5190", "--bind", "127.0.0.1"],
+      "port": 5190
     }
   ]
 }

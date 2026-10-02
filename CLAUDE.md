@@ -32,11 +32,11 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v15`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v16`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
-   puerto 5173) antes de publicar, y otra vez contra el sitio real después. El panel de vista
+   puerto 5190; el 5173 lo usa otro servicio de esta máquina) antes de publicar, y otra vez contra el sitio real después. El panel de vista
    previa cachea fuerte: desregistra el service worker y borra cachés, o pide los archivos con
    `fetch(..., {cache:'reload'})`.
 3. Commit + `git push origin main`. Pages tarda ~1 minuto; espera a que
@@ -77,6 +77,8 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | `app.js` | Estado, render, cámara, import/export, puentes con los demás módulos |
 | `statement.js` | Lector de estados de cuenta en PDF y pantalla de revisión (varios archivos) |
 | `reconcile.js` | Conciliar un estado con lo ya apuntado (no importa nada) |
+| `bandeja.js` | Facturas con IA: sube fotos al servidor de casa, bandeja de revisión, aplica gastos con id fijo |
+| `servidor/` | API de facturas (FastAPI + OCR + Ollama + verificador). Corre en la máquina de casa; datos fuera del repo (`~/finanzas`). Ver `docs/PLAN-FOTOS-IA.md` |
 | `loans.js` | Deudas: cuota, amortización, consolidado, calendario mensual, avisos, `.ics` |
 | `i18n.js` | Traducciones |
 | `sw.js` | Service worker (caché + auto-actualización) |

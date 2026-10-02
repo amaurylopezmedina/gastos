@@ -90,7 +90,7 @@ Debe salir `built` y `https://amaurylopezmedina.github.io/gastos/`.
 python --version        # o python3 · 3.10 o superior
 node --version          # opcional
 ```
-- Servidor de pruebas: `python -m http.server 5173` (config `gastos` en `.claude/launch.json`).
+- Servidor de pruebas: `python3 -m http.server 5190 --bind 127.0.0.1` (config `gastos` en `.claude/launch.json`).
 - Para los scripts de `PRIVADO/scripts/`: `pip install pypdf openpyxl reportlab`.
 
 ### 8. ¿Llegó la zona privada?
@@ -109,8 +109,8 @@ python PRIVADO/scripts/manifiesto.py --verificar
   máquina anterior; no intentes reconstruirla de memoria ni de preguntas sueltas.
 
 ### 9. Prueba de humo
-1. Arranca el servidor de pruebas y abre `http://localhost:5173`.
-2. Consola sin errores; en **Ajustes** abajo debe leerse `Gastos · v15` (o la versión vigente,
+1. Arranca el servidor de pruebas y abre `http://127.0.0.1:5190`.
+2. Consola sin errores; en **Ajustes** abajo debe leerse `Gastos · v16` (o la versión vigente,
    que es el `CACHE` de `sw.js`).
 3. Comprueba que `git status` está limpio y que **no** aparece `PRIVADO/`.
 

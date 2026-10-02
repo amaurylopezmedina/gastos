@@ -1024,6 +1024,28 @@
     addImported: (list) => addImportedRows(list)
   });
 
+  /* ---------------- Facturas con IA (servidor de casa) ---------------- */
+
+  window.BANDEJA.init({
+    t: t,
+    toast: toast,
+    fmt: fmt,
+    shrink: shrink,
+    photoPut: photoPut,
+    parseAmount: (text) => Math.round(parseNumber(text) * 100),
+    cats: () => state.cats,
+    pays: () => state.pays,
+    catName: (id) => catName(id),
+    payName: (p) => label(p, 'pay'),
+    hasExpense: (id) => state.expenses.some((e) => e.id === id),
+    addExpense: (e) => {
+      state.expenses.push(e);
+      save();
+      cursor = startOfMonth(parseDate(e.date));
+      renderAll();
+    }
+  });
+
   // La usan tanto la importación como la conciliación al apuntar lo que falta.
   function addImportedRows(list) {
     if (!list.length) return;

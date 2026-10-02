@@ -194,6 +194,17 @@
       <input type="file" id="pdfFile" accept="application/pdf,.pdf" multiple hidden>
       <input type="file" id="recFile" accept="application/pdf,.pdf" multiple hidden>
 
+      <h2 class="section-title" data-i18n="bnd.title"></h2>
+      <div class="group">
+        <button class="row action" id="bndSend"><span data-i18n="bnd.send"></span><span class="chev">&#128247;</span></button>
+        <button class="row action" id="bndOpen"><span data-i18n="bnd.open"></span><span class="chev" id="bndCount">&rsaquo;</span></button>
+        <label class="row"><span data-i18n="bnd.url"></span><input type="url" id="bndUrl" inputmode="url" autocomplete="off" autocapitalize="off" placeholder="https://"></label>
+        <label class="row"><span>Client ID</span><input type="text" id="bndId" autocomplete="off" autocapitalize="off"></label>
+        <label class="row"><span>Client Secret</span><input type="password" id="bndSecret" autocomplete="off"></label>
+      </div>
+      <input type="file" id="bndFile" accept="image/*" hidden>
+      <p class="note" data-i18n="bnd.hint"></p>
+
       <h2 class="section-title" id="importsTitle" data-i18n="set.imports" hidden></h2>
       <div class="group" id="importList" hidden></div>
 
@@ -372,6 +383,35 @@
   <div class="sheet-pad"></div>
 </div>
 
+<!-- ============ HOJA: BANDEJA DE FACTURAS ============ -->
+<div class="sheet-backdrop" id="bndBackdrop" hidden></div>
+<div class="sheet" id="bndSheet" hidden role="dialog" aria-modal="true">
+  <div class="sheet-head">
+    <button class="sheet-btn" id="bndClose" data-i18n="sheet.cancel"></button>
+    <strong id="bndTitle"></strong>
+    <span></span>
+  </div>
+  <div id="bndListView"><div class="group" id="bndList"></div></div>
+  <div id="bndDetail" hidden>
+    <img id="bndPhoto" class="bnd-photo" hidden data-i18n-alt="photo.alt">
+    <p class="note" id="bndInfo"></p>
+    <ul class="bnd-problems" id="bndProblems" hidden></ul>
+    <div class="form">
+      <label class="field"><span data-i18n="bnd.f.shop"></span><input type="text" id="bndComercio" maxlength="60"></label>
+      <label class="field"><span data-i18n="bnd.f.date"></span><input type="date" id="bndFecha"></label>
+      <label class="field"><span data-i18n="bnd.f.total"></span><input type="text" inputmode="decimal" id="bndTotal"></label>
+      <label class="field"><span data-i18n="bnd.f.cat"></span><select id="bndCat"></select></label>
+      <label class="field"><span data-i18n="bnd.f.pay"></span><select id="bndPay"></select></label>
+    </div>
+    <p class="note" id="bndCardNote" data-i18n="bnd.cardnote" hidden></p>
+    <div class="group">
+      <button class="row action" id="bndApply" type="button"><span data-i18n="bnd.apply"></span><span class="chev">&rsaquo;</span></button>
+      <button class="row action danger" id="bndDiscard" type="button"><span data-i18n="bnd.discard"></span><span class="chev">&rsaquo;</span></button>
+    </div>
+  </div>
+  <div class="sheet-pad"></div>
+</div>
+
 <div class="lightbox" id="lightbox" hidden>
   <button class="lightbox-close" id="lightboxClose" data-i18n-aria="photo.close">&times;</button>
   <img id="lightboxImg" data-i18n-alt="photo.alt">
@@ -383,6 +423,7 @@
 <script src="statement.js"></script>
 <script src="reconcile.js"></script>
 <script src="loans.js"></script>
+<script src="bandeja.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
