@@ -7,3 +7,11 @@ Thumbs.db
 
 # Estados de cuenta de prueba: nunca al repositorio
 *.pdf
+
+# Contexto financiero personal: balances, tarjetas, planes. El repo es PUBLICO.
+# Esta carpeta viaja con una copia del directorio, pero jamas con git.
+PRIVADO/
+*.xlsx
+mis-deudas.json
+*.sqlite
+*.db
