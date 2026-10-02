@@ -4,7 +4,7 @@
     {
       "name": "gastos",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5173", "--bind", "0.0.0.0"],
+      "runtimeArgs": ["-m", "http.server", "5173", "--bind", "127.0.0.1"],
       "port": 5173
     }
   ]

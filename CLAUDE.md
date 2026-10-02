@@ -24,6 +24,8 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
   `mis-deudas.json` o una base de datos, para y avisa.
 - Datos de prueba: usa **datos inventados**. Si necesitas un PDF real para probar el importador,
   cópialo, úsalo y **bórralo** al terminar. No dejes PDFs en el proyecto.
+- **El servidor de pruebas va ligado a `127.0.0.1`** (ver `.claude/launch.json`), nunca a
+  `0.0.0.0`: sirve todo el directorio, `PRIVADO/` incluido, y en `0.0.0.0` lo vería toda la red local.
 - Lo que lees de los documentos del usuario viaja a los servidores de Anthropic. No le pidas
   documentos reales si con datos de muestra basta.
 
