@@ -271,6 +271,9 @@
       <button type="button" id="kindTransfer" data-i18n="kind.transfer"></button>
     </div>
 
+    <div class="picker-label" data-i18n="sheet.desc"></div>
+    <textarea id="noteInput" class="desc-input" rows="1" maxlength="140" data-i18n-ph="sheet.desc.ph"></textarea>
+
     <div class="tip-row" id="tipRow">
       <label class="tip-field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="tipInput" placeholder="0"></label>
       <div class="tip-chips">
@@ -283,18 +286,17 @@
     <div class="picker-label" id="catLabel" data-i18n="sheet.cat"></div>
     <div class="cat-picker" id="catPicker"></div>
 
-    <div class="picker-label" id="rubroLabel" data-i18n="sheet.rubro"></div>
-    <select class="rubro-select" id="rubroSelect"></select>
-
     <div class="picker-label" id="payLabel" data-i18n="sheet.pay"></div>
     <div class="cat-picker" id="payPicker"></div>
 
     <div class="picker-label" id="toLabel" data-i18n="sheet.payTo" hidden></div>
     <div class="cat-picker" id="toPicker" hidden></div>
 
+    <div class="picker-label" id="rubroLabel" data-i18n="sheet.rubro"></div>
+    <select class="rubro-select" id="rubroSelect"></select>
+
     <div class="meta-row">
       <input type="date" id="dateInput">
-      <input type="text" id="noteInput" maxlength="60" data-i18n-ph="sheet.note.ph">
     </div>
 
     <div class="photo-row">
@@ -444,6 +446,7 @@
     <div class="form">
       <label class="field"><span data-i18n="bnd.f.shop"></span><input type="text" id="bndComercio" maxlength="60"></label>
       <label class="field"><span data-i18n="bnd.f.date"></span><input type="date" id="bndFecha"></label>
+      <label class="field"><span data-i18n="sheet.desc"></span><input type="text" id="bndDesc" maxlength="80" data-i18n-ph="sheet.desc.ph"></label>
       <label class="field"><span data-i18n="bnd.f.total"></span><input type="text" inputmode="decimal" id="bndTotal"></label>
       <label class="field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="bndTip" placeholder="0"></label>
       <div class="tip-chips bnd-tip-chips">

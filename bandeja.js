@@ -152,6 +152,7 @@ window.BANDEJA = (() => {
     $('#bndFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : '';
     $('#bndTotal').value = Number.isFinite(c.total) ? host.amountText(c.total) : '';
     $('#bndTip').value = '';
+    $('#bndDesc').value = '';
     fillRubros($('#bndRubro'), c.rubro);
     fillPays($('#bndPay'), c.tarjeta);
 
@@ -216,7 +217,7 @@ window.BANDEJA = (() => {
         if (pay === '__new__') pay = host.addCard($('#bndPay').dataset.newName);   // la tarjeta del comprobante, aún sin crear
         host.addExpense({
           id, cents: cents + tip, tip: tip || undefined, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
-          note: comercio.slice(0, 60), photo: 'ph_' + id, src: 'foto', ts: Date.now()
+          note: [comercio, $('#bndDesc').value.trim()].filter(Boolean).join(' \u00b7 ').slice(0, 140), photo: 'ph_' + id, src: 'foto', ts: Date.now()
         });
       }
       // 3) cierra la factura en el servidor (que además pasa su foto al almacén de la app)

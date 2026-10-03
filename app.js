@@ -629,6 +629,7 @@
     $('#amountCur').textContent = currencySymbol();
     $('#dateInput').value = draft.date;
     $('#noteInput').value = draft.note;
+    autosize();
     $('#tipInput').value = draft.tip ? amountText(draft.tip) : '';
 
     renderPickers();
@@ -744,6 +745,13 @@
     paintTip();
   }
 
+  // La descripción arranca en una línea y crece al escribir (hasta 3), para no gastar espacio del teclado.
+  function autosize() {
+    const box = $('#noteInput');
+    box.style.height = 'auto';
+    box.style.height = Math.min(box.scrollHeight + 2, 96) + 'px';
+  }
+
   /* Propina adicional: lo que se deja ENCIMA de la factura. El gasto guarda el total pagado (factura + propina) y
      la propina aparte, para poder editarla; así saldos, cuentas y presupuesto cuadran con lo que de verdad salió. */
   const draftBase = () => Math.round(parseFloat(draft.raw || '0') * 100) || 0;
@@ -811,7 +819,7 @@
     const cents = base + tip;
 
     const date = $('#dateInput').value || ymd(new Date());
-    const note = $('#noteInput').value.trim();
+    const note = $('#noteInput').value.replace(/\s+/g, ' ').trim().slice(0, 140);   // la descripción (sin saltos de línea)
     const isEdit = Boolean(draft.id);
 
     // Resuelve la foto antes de tocar el estado.
@@ -1366,6 +1374,7 @@
     if (docs.length) window.STATEMENT.open(docs);
   });
   $('#tipInput').addEventListener('input', paintTip);
+  $('#noteInput').addEventListener('input', autosize);
   $$('#tipRow .tip-chip').forEach((b) => b.addEventListener('click', () => {
     const base = draftBase();
     if (!base) return toast(t('msg.needAmount'));
