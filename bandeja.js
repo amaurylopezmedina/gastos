@@ -74,9 +74,11 @@ window.BANDEJA = (() => {
       return;                                     // sin conexión: se deja lo último que se vio
     }
     const pend = items.filter(isPending);
+    const loaded = items.filter((i) => i.estado === 'aplicada').length;
     for (const banner of document.querySelectorAll('.bnd-banner')) {
-      banner.hidden = pend.length === 0;
-      banner.textContent = pend.length ? t('bnd.banner', { n: pend.length }) : '';
+      banner.hidden = items.length === 0;                   // visible mientras exista algún documento: de ahí se abre la lista
+      banner.classList.toggle('done', pend.length === 0);
+      banner.textContent = pend.length ? t('bnd.bannerPend', { p: pend.length, l: loaded }) : t('bnd.bannerDone', { l: loaded });
     }
     const count = $('#docsCount');
     if (count) count.textContent = items.length ? String(items.length) : '›';
@@ -108,10 +110,20 @@ window.BANDEJA = (() => {
     return row;
   }
 
+  function importRow(im) {
+    const row = el('div', 'row bnd-doc');
+    const main = el('div', 'bnd-doc-main');
+    main.append(el('span', 'bnd-doc-title', '\u{1F4C4} ' + im.file), el('small', 'bnd-doc-sub', t('bnd.imp.sub', { d: im.when, n: im.count })));
+    row.appendChild(main);
+    row.appendChild(el('span', 'bnd-doc-amt', host.fmt(im.cents)));
+    return row;
+  }
+
   function paintList() {
     const box = $('#bndList');
     box.replaceChildren();
-    if (!items.length) { box.appendChild(el('p', 'note', t('bnd.emptyAll'))); return; }
+    const imports = (host.imports() || []).slice().reverse();
+    if (!items.length && !imports.length) { box.appendChild(el('p', 'note', t('bnd.emptyAll'))); return; }
     const sections = [
       ['bnd.sec.pending', items.filter(isPending)],
       ['bnd.sec.loaded', items.filter((i) => i.estado === 'aplicada')],
@@ -122,6 +134,28 @@ window.BANDEJA = (() => {
       box.appendChild(el('div', 'bnd-sec', t(key) + ' (' + list.length + ')'));
       for (const it of list) box.appendChild(docRow(it));
     }
+    if (imports.length) {                                     // estados de cuenta ya cargados (se deshacen en Ajustes)
+      box.appendChild(el('div', 'bnd-sec', t('bnd.sec.imports') + ' (' + imports.length + ')'));
+      for (const im of imports) box.appendChild(importRow(im));
+    }
+  }
+
+  async function swap(file) {
+    if (!file || !current) return;
+    host.toast(t('bnd.swapping'));
+    try {
+      const blob = await host.shrink(file, 2000, 0.85);
+      const fd = new FormData();
+      fd.append('archivo', blob, 'factura.jpg');
+      const r = await api('/facturas/' + enc(current.id) + '/sustituir', { method: 'POST', body: fd });
+      if (r.status === 409) {
+        const msg = await r.json().catch(() => ({}));
+        return host.toast(t(/leyendo/.test(msg.detail || '') ? 'bnd.swapBusy' : /cargada/.test(msg.detail || '') ? 'bnd.alreadyLoaded' : 'bnd.swapDup'));
+      }
+      if (!r.ok) throw new Error('http ' + r.status);
+      host.toast(t('bnd.swapped'));
+      backToList(false);
+    } catch (_) { host.toast(t('bnd.fail')); }
   }
 
   async function reprocess(id) {
@@ -201,6 +235,7 @@ window.BANDEJA = (() => {
     $('#bndActions').hidden = loaded;
     $('#bndLoadedBox').hidden = !loaded;
     $('#bndReprocess').hidden = loaded;
+    $('#bndSwapBtn').hidden = loaded;
     $('#bndComercio').value = c.comercio || '';
     $('#bndFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : '';
     $('#bndTotal').value = Number.isFinite(c.total) ? host.amountText(c.total) : '';
@@ -320,6 +355,8 @@ window.BANDEJA = (() => {
     for (const banner of document.querySelectorAll('.bnd-banner')) banner.addEventListener('click', openSheet);
     $('#bndClose').addEventListener('click', () => (current ? backToList(false) : closeSheet()));
     $('#bndReprocess').addEventListener('click', () => current && reprocess(current.id));
+    $('#bndSwapBtn').addEventListener('click', () => $('#bndSwapFile').click());
+    $('#bndSwapFile').addEventListener('change', (ev) => { const f = ev.target.files[0]; ev.target.value = ''; swap(f); });
     $('#bndViewExpense').addEventListener('click', () => { if (current) { host.openExpense('f_' + current.id); } });
     const docs = $('#docsOpen');
     if (docs) docs.addEventListener('click', openSheet);

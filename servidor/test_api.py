@@ -291,7 +291,7 @@ def test_foto_sin_texto_no_se_inventa_nada(c, monkeypatch):
     monkeypatch.setattr(servidor.lectura, 'clasificar_llm', no_debe_llamarse)
     fid = c.post('/api/facturas', files={'archivo': ('f.jpg', jpg('white', (30, 30)), 'image/jpeg')}).json()['id']
     f = _esperar(c, fid)
-    assert f['estado'] == 'revisar' and 'sin_texto' in f['problemas'] and f['campos']['comercio'] is None and f['leida_por'] == 'sin_texto'
+    assert f['estado'] == 'revisar' and f['problemas'] == ['sin_texto'] and f['campos']['comercio'] is None and f['leida_por'] == 'sin_texto'
 
 
 def test_el_modelo_no_puede_llamar_null_a_un_comercio(monkeypatch):
@@ -300,3 +300,26 @@ def test_el_modelo_no_puede_llamar_null_a_un_comercio(monkeypatch):
         def json(self): return {'message': {'content': '{"comercio": "null", "fecha": "2026-10-01", "total": "10.00", "tipo": "gasto", "lineas": []}'}}
     monkeypatch.setattr(servidor.lectura.httpx, 'post', lambda *a, **k: R())
     assert servidor.lectura.ollama('algo de texto largo')['comercio'] == ''
+
+
+def test_sustituir_la_foto_de_un_documento(c, monkeypatch):
+    estados = iter(['', 'SUPERMERCADO EJEMPLO\nTOTAL 10.00'])           # la 1a foto sale vacia; la sustituta se lee bien
+    monkeypatch.setattr(servidor.lectura, 'ocr', lambda ruta: (next(estados), 0.9))
+    monkeypatch.setattr(servidor.lectura, 'ollama', lambda t: {'comercio': 'Supermercado Ejemplo', 'fecha': '2026-10-01', 'total': 1000, 'tipo': 'gasto', 'lineas': []})
+    monkeypatch.setattr(servidor.lectura, 'clasificar_llm', lambda comercio, lineas: None)
+    fid = c.post('/api/facturas', files={'archivo': ('f.jpg', jpg('olive'), 'image/jpeg')}).json()['id']
+    assert _esperar(c, fid)['estado'] == 'revisar'
+    antes = (servidor.FOTOS / f'{fid}.jpg').read_bytes()
+    r = c.post(f'/api/facturas/{fid}/sustituir', files={'archivo': ('n.jpg', jpg('navy', (50, 40)), 'image/jpeg')})
+    assert r.status_code == 200
+    f = _esperar(c, fid)
+    assert f['id'] == fid and f['estado'] == 'listo' and f['campos']['total'] == 1000      # mismo documento, leido de nuevo
+    assert (servidor.FOTOS / f'{fid}.jpg').read_bytes() != antes                           # y con la foto nueva
+    # validaciones
+    assert c.post(f'/api/facturas/{fid}/sustituir', files={'archivo': ('n.jpg', b'no es imagen', 'image/jpeg')}).status_code == 415
+    otro = c.post('/api/facturas', files={'archivo': ('g.jpg', jpg('maroon'), 'image/jpeg')}).json()['id']
+    _esperar(c, otro)
+    assert c.post(f'/api/facturas/{fid}/sustituir', files={'archivo': ('g.jpg', jpg('maroon'), 'image/jpeg')}).status_code == 409   # esa foto ya es otro documento
+    assert c.post(f'/api/facturas/{fid}/estado', json={'estado': 'aplicada'}).status_code == 200
+    assert c.post(f'/api/facturas/{fid}/sustituir', files={'archivo': ('n.jpg', jpg('teal'), 'image/jpeg')}).status_code == 409   # lo cargado no se sustituye
+    assert c.post('/api/facturas/0000000000000000/sustituir', files={'archivo': ('n.jpg', jpg('teal'), 'image/jpeg')}).status_code == 404

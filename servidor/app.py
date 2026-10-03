@@ -137,7 +137,7 @@ def _procesar(fid):
                 campos['total'] = campos.get('total')
         campos['rubro'], campos['rubro_por'] = (None, None) if por == 'sin_texto' else decidir_rubro(c, campos, texto, usar_ia=(por in ('ollama', 'voucher')))
         campos['categoria'] = rubros.CATEGORIA.get(campos['rubro'], 'otros')
-        problemas = verificar.verificar(campos, texto, conf) + extra
+        problemas = extra if por == 'sin_texto' else verificar.verificar(campos, texto, conf) + extra   # sin texto: basta la causa
         if por not in ('ollama', 'voucher', 'sin_texto'):
             problemas.append('sin_ia')
         estado = 'listo' if not problemas else 'revisar'
@@ -264,6 +264,40 @@ def reprocesar(fid: str):
     db.commit()
     encolar(fid)
     return {'ok': True, 'ya_en_cola': False}
+
+
+@api.post('/facturas/{fid}/sustituir')
+async def sustituir(fid: str, archivo: UploadFile = File(...)):
+    """Cambia la foto de un documento por otra mejor (p. ej. la primera salio borrosa) y la vuelve a leer.
+    El documento conserva su id. Lo ya cargado como gasto no se toca."""
+    r = obtener(fid)
+    if r['estado'] == 'aplicada':
+        raise HTTPException(409, 'ya esta cargada')
+    if fid in _pendientes:
+        raise HTTPException(409, 'se esta leyendo ahora')
+    datos = await archivo.read(MAX_BYTES + 1)
+    if len(datos) > MAX_BYTES:
+        raise HTTPException(413, 'archivo demasiado grande')
+    try:
+        img = Image.open(io.BytesIO(datos))
+        img.load()
+        if img.format not in ('JPEG', 'PNG', 'WEBP'):
+            raise ValueError
+        img = ImageOps.exif_transpose(img).convert('RGB')
+    except Exception:
+        raise HTTPException(415, 'imagen no valida')
+    img.thumbnail((2000, 2000))
+    buf = io.BytesIO()
+    img.save(buf, 'JPEG', quality=85)
+    otra = hashlib.sha256(buf.getvalue()).hexdigest()[:16]
+    db = con()
+    if otra != fid and db.execute('SELECT 1 FROM facturas WHERE id=?', (otra,)).fetchone():
+        raise HTTPException(409, 'esa foto ya esta entre los documentos')
+    (FOTOS / f'{fid}.jpg').write_bytes(buf.getvalue())
+    db.execute("UPDATE facturas SET estado='nueva', ocr_texto=NULL, ocr_conf=NULL, campos=NULL, problemas=NULL, error=NULL, leida_por=NULL WHERE id=?", (fid,))
+    db.commit()
+    encolar(fid)
+    return {'ok': True}
 
 
 class Correccion(BaseModel):

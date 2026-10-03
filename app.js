@@ -1254,6 +1254,7 @@
       save();
       return pay.id;
     },
+    imports: () => state.imports,
     openExpense: (id) => {
       const e = state.expenses.find((x) => x.id === id);
       if (e) openSheet(e); else toast(t('bnd.noExpense'));
