@@ -689,3 +689,34 @@ button.rec-row:active { background: var(--surface-2); }
 .tip-chip { padding: 8px 12px; border-radius: 10px; background: var(--surface); color: var(--accent); font-weight: 600; font-size: 14px; }
 .tip-total { flex: 1 0 100%; text-align: right; color: var(--text-dim); font-size: 13px; padding-right: 4px; }
 .bnd-tip-chips { padding: 0 2px 8px; }
+
+/* ---------- Hoja de gasto: importe arriba y teclado abajo, siempre a la vista ----------
+   Antes toda la hoja era una columna que se desplazaba y el teclado quedaba cortado al fondo. Ahora la cabecera,
+   el importe y el teclado son fijos, y solo se desplazan las opciones del medio. */
+#sheet {
+  display: flex; flex-direction: column; padding: 0;
+  height: calc(100vh - var(--safe-top) - 8px);
+  height: calc(100dvh - var(--safe-top) - 8px);
+  max-height: none; overflow: hidden;
+}
+#sheet[hidden] { display: none; }
+#sheet .sheet-head, #sheet .amount-display, #sheet .tip-total { flex: none; padding-left: 16px; padding-right: 16px; }
+#sheet .amount-display { padding-top: 4px; padding-bottom: 2px; }
+#sheet .amount-val { font-size: 44px; }
+#sheet .amount-cur { font-size: 22px; }
+#sheet .tip-total { padding-top: 0; padding-bottom: 4px; text-align: center; flex-basis: auto; }
+#sheet .sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 4px 16px 12px; }
+#sheet .sheet-keys { flex: none; padding: 8px 16px calc(var(--safe-bottom) + 10px); background: var(--bg); border-top: 1px solid var(--line); }
+#sheet .keypad { gap: 6px; }
+#sheet .keypad button { height: 46px; font-size: 22px; border-radius: 11px; }
+.save-big { width: 100%; margin-top: 8px; padding: 13px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 650; font-size: 17px; }
+.save-big:active { opacity: .85; }
+#sheet .tip-row { margin-bottom: 4px; }
+
+/* Sin zoom por doble toque (iOS) pero sin perder ningún toque: reemplaza al truco de JS que descartaba toques seguidos. */
+html, body, button, input, select, textarea, label, a { touch-action: manipulation; }
+
+#sheet .tip-row { flex-wrap: nowrap; gap: 6px; }
+#sheet .tip-field { flex: 1 1 0; min-width: 0; padding: 6px 10px; }
+#sheet .tip-field span { white-space: nowrap; font-size: 13px; }
+#sheet .tip-chip { padding: 8px 9px; }

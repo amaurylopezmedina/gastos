@@ -637,7 +637,7 @@
 
     $('#backdrop').hidden = false;
     $('#sheet').hidden = false;
-    $('#sheet').scrollTop = 0;
+    $('#sheetBody').scrollTop = 0;
   }
 
   function closeSheet() {
@@ -1406,6 +1406,7 @@
   $('#cancelBtn').addEventListener('click', closeSheet);
   $('#backdrop').addEventListener('click', closeSheet);
   $('#saveBtn').addEventListener('click', saveDraft);
+  $('#saveBig').addEventListener('click', saveDraft);
   $('#deleteBtn').addEventListener('click', deleteDraft);
 
   $('#keypad').addEventListener('click', (ev) => {
@@ -1480,13 +1481,8 @@
     if (files && files.length) window.RECONCILE.open(files);
   });
 
-  // Evita el zoom por doble toque en iOS sin bloquear los toques normales.
-  let lastTouch = 0;
-  document.addEventListener('touchend', (ev) => {
-    const now = Date.now();
-    if (now - lastTouch < 320) ev.preventDefault();
-    lastTouch = now;
-  }, { passive: false });
+  // El zoom por doble toque se evita con CSS (touch-action: manipulation, ver styles.css). Antes se hacía aquí descartando
+  // todo toque a menos de 320 ms del anterior, lo que se comía los dígitos al teclear rápido el importe.
 
   /* ---------------- Arranque ---------------- */
 

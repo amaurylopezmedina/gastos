@@ -257,61 +257,66 @@
     <button class="sheet-btn strong" id="saveBtn" data-i18n="sheet.save"></button>
   </div>
 
+  <!-- Arriba, fijo: el importe. Abajo, fijo: el teclado. En medio solo se desplazan las opciones. -->
   <div class="amount-display">
     <span class="amount-cur" id="amountCur">&euro;</span>
     <span class="amount-val" id="amountVal">0</span>
   </div>
+  <div class="tip-total" id="tipTotal" hidden></div>
 
-  <div class="tip-row" id="tipRow">
-    <label class="tip-field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="tipInput" placeholder="0"></label>
-    <div class="tip-chips">
-      <button type="button" class="tip-chip" data-pct="10">10%</button>
-      <button type="button" class="tip-chip" data-pct="15">15%</button>
-      <button type="button" class="tip-chip" data-pct="20">20%</button>
+  <div class="sheet-body" id="sheetBody">
+    <div class="kind-toggle">
+      <button type="button" id="kindExpense" class="on" data-i18n="kind.expense"></button>
+      <button type="button" id="kindIncome" data-i18n="kind.income"></button>
+      <button type="button" id="kindTransfer" data-i18n="kind.transfer"></button>
     </div>
-    <div class="tip-total" id="tipTotal" hidden></div>
-  </div>
 
-  <div class="kind-toggle">
-    <button type="button" id="kindExpense" class="on" data-i18n="kind.expense"></button>
-    <button type="button" id="kindIncome" data-i18n="kind.income"></button>
-    <button type="button" id="kindTransfer" data-i18n="kind.transfer"></button>
-  </div>
-
-  <div class="picker-label" id="catLabel" data-i18n="sheet.cat"></div>
-  <div class="cat-picker" id="catPicker"></div>
-
-  <div class="picker-label" id="rubroLabel" data-i18n="sheet.rubro"></div>
-  <select class="rubro-select" id="rubroSelect"></select>
-
-  <div class="picker-label" id="payLabel" data-i18n="sheet.pay"></div>
-  <div class="cat-picker" id="payPicker"></div>
-
-  <div class="picker-label" id="toLabel" data-i18n="sheet.payTo" hidden></div>
-  <div class="cat-picker" id="toPicker" hidden></div>
-
-  <div class="meta-row">
-    <input type="date" id="dateInput">
-    <input type="text" id="noteInput" maxlength="60" data-i18n-ph="sheet.note.ph">
-  </div>
-
-  <div class="photo-row">
-    <button type="button" class="photo-add" id="attachPhoto"></button>
-    <div class="photo-thumb" id="photoThumb" hidden>
-      <img id="photoImg" data-i18n-alt="photo.alt">
-      <button type="button" class="photo-del" id="photoDel" data-i18n-aria="photo.remove">&times;</button>
+    <div class="tip-row" id="tipRow">
+      <label class="tip-field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="tipInput" placeholder="0"></label>
+      <div class="tip-chips">
+        <button type="button" class="tip-chip" data-pct="10">10%</button>
+        <button type="button" class="tip-chip" data-pct="15">15%</button>
+        <button type="button" class="tip-chip" data-pct="20">20%</button>
+      </div>
     </div>
+
+    <div class="picker-label" id="catLabel" data-i18n="sheet.cat"></div>
+    <div class="cat-picker" id="catPicker"></div>
+
+    <div class="picker-label" id="rubroLabel" data-i18n="sheet.rubro"></div>
+    <select class="rubro-select" id="rubroSelect"></select>
+
+    <div class="picker-label" id="payLabel" data-i18n="sheet.pay"></div>
+    <div class="cat-picker" id="payPicker"></div>
+
+    <div class="picker-label" id="toLabel" data-i18n="sheet.payTo" hidden></div>
+    <div class="cat-picker" id="toPicker" hidden></div>
+
+    <div class="meta-row">
+      <input type="date" id="dateInput">
+      <input type="text" id="noteInput" maxlength="60" data-i18n-ph="sheet.note.ph">
+    </div>
+
+    <div class="photo-row">
+      <button type="button" class="photo-add" id="attachPhoto"></button>
+      <div class="photo-thumb" id="photoThumb" hidden>
+        <img id="photoImg" data-i18n-alt="photo.alt">
+        <button type="button" class="photo-del" id="photoDel" data-i18n-aria="photo.remove">&times;</button>
+      </div>
+    </div>
+
+    <button class="delete-expense" id="deleteBtn" hidden data-i18n="sheet.delete"></button>
   </div>
 
-  <div class="keypad" id="keypad">
-    <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
-    <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
-    <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
-    <button type="button" data-k="." id="decimalKey">,</button><button type="button" data-k="0">0</button><button type="button" data-k="del" class="del">&#9003;</button>
+  <div class="sheet-keys">
+    <div class="keypad" id="keypad">
+      <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+      <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+      <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+      <button type="button" data-k="." id="decimalKey">,</button><button type="button" data-k="0">0</button><button type="button" data-k="del" class="del">&#9003;</button>
+    </div>
+    <button type="button" class="save-big" id="saveBig" data-i18n="sheet.save"></button>
   </div>
-
-  <button class="delete-expense" id="deleteBtn" hidden data-i18n="sheet.delete"></button>
-  <div class="sheet-pad"></div>
 </div>
 
 <!-- ============ HOJA: DEUDA ============ -->

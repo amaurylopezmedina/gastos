@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v29`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v31`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -64,6 +64,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
   (`io.open(..., encoding='utf-8', newline='')`). Comprueba que no aparezca "Ã".
 - **Mensajes de commit en PowerShell:** usa here-string `@' ... '@` y **no pongas comillas dobles**
   dentro; una vez rompieron el comando.
+- **Nunca descartes toques por tiempo** (el viejo truco anti-zoom ignoraba todo toque a <320 ms del anterior y se comía dígitos del teclado). El zoom por doble toque se evita solo con CSS `touch-action: manipulation`.
 - **Dinero en céntimos enteros**, nunca flotantes.
 - **Un importe puesto en un campo de texto se escribe con `amountText()`** (separador decimal del idioma),
   nunca con `toFixed(2)` a pelo: en español «1239.00» se lee como 123900 (el punto es de miles) y el gasto
