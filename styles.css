@@ -654,3 +654,11 @@ button.rec-row:active { background: var(--surface-2); }
 .bud-r-budget { color: var(--accent); font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
 .bud-r-budget:disabled { color: var(--text-dim); }
 #view-budget .group { margin: 0 16px; border-radius: 0 0 14px 14px; }
+
+/* ---------- Cuentas y cobertura ---------- */
+.acct-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
+.acct-form input { padding: 10px; border-radius: 10px; background: var(--bg); color: var(--text); border: 0; font-size: 16px; min-width: 0; }
+.acct-form button { grid-column: 1 / -1; padding: 10px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; }
+.acct-pending { color: var(--danger); font-size: 12px; }
+.cov-row { cursor: default; }
+.cov-none { color: var(--danger); }

@@ -580,6 +580,7 @@
     renderSettings();
     if (window.LOANS) window.LOANS.render();
     if (window.PRESUPUESTO) window.PRESUPUESTO.render();
+    if (window.CUENTAS) window.CUENTAS.render();
   }
 
   /* ---------------- Hoja: añadir / editar ---------------- */
@@ -682,7 +683,12 @@
     }
     const pays = $('#payPicker');
     pays.textContent = '';
-    for (const p of state.pays) {
+    // Un ingreso entra a una cuenta (o en efectivo): no a una tarjeta.
+    const accts = state.pays.filter((p) => p.kind === 'account' || p.id === 'efectivo');
+    const choices = draft.kind === 'income' && accts.some((p) => p.kind === 'account') ? accts : state.pays;
+    if (draft.kind === 'income' && !choices.some((p) => p.id === draft.pay)) draft.pay = choices[0].id;
+    $('#payLabel').textContent = t(draft.kind === 'income' ? 'sheet.payIn' : 'sheet.pay');
+    for (const p of choices) {
       pays.appendChild(chip(p, 'pay', p.id === draft.pay, () => { draft.pay = p.id; renderPickers(); }));
     }
     for (const box of [cats, pays]) {
@@ -919,7 +925,7 @@
       if (!data || typeof data !== 'object') return toast(t('msg.badFile'));
       // Una copia puede traer solo deudas, solo gastos, o ambas cosas.
       const lines = data.budgetLines && typeof data.budgetLines === 'object' ? data.budgetLines : null;
-      if (!Array.isArray(data.expenses) && !Array.isArray(data.debts) && !lines) return toast(t('msg.badFile'));
+      if (!Array.isArray(data.expenses) && !Array.isArray(data.debts) && !Array.isArray(data.pays) && !lines) return toast(t('msg.badFile'));
 
       const incoming = (data.expenses || []).filter(validExpense);
       const known = new Set(state.expenses.map((e) => e.id));
@@ -1094,7 +1100,7 @@
     firstCat: () => state.cats[0].id,
     signatures: () => new Set(state.expenses.filter((e) => e.sig).map((e) => e.sig)),
     addPay: (name, icon) => {
-      const pay = { id: uid(), icon: icon, name: name };
+      const pay = { id: uid(), icon: icon, name: name, kind: 'card' };
       state.pays.push(pay);
       save();
       return pay.id;
@@ -1130,6 +1136,22 @@
       cursor = startOfMonth(parseDate(e.date));
       renderAll();
     }
+  });
+
+  /* ---------------- Cuentas y cobertura de datos ---------------- */
+
+  window.CUENTAS.init({
+    t: t,
+    fmt: fmt,
+    toast: toast,
+    parseAmount: (text) => Math.round(parseNumber(text) * 100),
+    amountText: (cents) => amountText(cents),
+    pays: () => state.pays,
+    expenses: () => state.expenses,
+    debts: () => state.debts,
+    addPay: (pay) => { state.pays.push(Object.assign({ id: 'acct_' + uid() }, pay)); save(); },
+    save: save,
+    renderAll: renderAll
   });
 
   /* ---------------- Presupuesto por rubros ---------------- */

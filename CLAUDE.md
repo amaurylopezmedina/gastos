@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v19`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v20`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -102,6 +102,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | `sync.js` | Datos en el servidor (`/api/estado`, versión optimista, conflictos) y fotos; copia local para trabajar sin conexión |
 | `rubros.js` | Las 59 líneas del presupuesto en 10 secciones (sin importes). El servidor la lee: es la única fuente |
 | `presupuesto.js` | Pestaña Presupuesto: presupuestado contra real por rubro; Deudas sale de la pestaña Deudas |
+| `cuentas.js` | Cuentas bancarias (forma de pago con `kind:'account'`, número `000000` hasta saber el real), saldo calculado y tabla «Hasta qué día hay datos» |
 | `bandeja.js` | Facturas con IA: foto → servidor → bandeja de revisión → gasto con id fijo y rubro |
 | `servidor/` | API de facturas (FastAPI + OCR + Ollama + verificador). Corre en la máquina de casa; datos fuera del repo (`~/finanzas`). Ver `docs/PLAN-FOTOS-IA.md` |
 | `loans.js` | Deudas: cuota, amortización, consolidado, calendario mensual, avisos, `.ics` |
