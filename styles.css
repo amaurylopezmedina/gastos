@@ -655,6 +655,7 @@ button.rec-row:active { background: var(--surface-2); }
 .bud-r-budget:disabled { color: var(--text-dim); }
 #view-budget .group { margin: 0 16px; border-radius: 0 0 14px 14px; }
 
+.item-amount.transfer { color: var(--text-dim); }
 /* ---------- Cuentas y cobertura ---------- */
 .acct-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
 .acct-form input { padding: 10px; border-radius: 10px; background: var(--bg); color: var(--text); border: 0; font-size: 16px; min-width: 0; }

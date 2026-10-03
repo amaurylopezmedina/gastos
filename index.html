@@ -256,16 +256,20 @@
   <div class="kind-toggle">
     <button type="button" id="kindExpense" class="on" data-i18n="kind.expense"></button>
     <button type="button" id="kindIncome" data-i18n="kind.income"></button>
+    <button type="button" id="kindTransfer" data-i18n="kind.transfer"></button>
   </div>
 
   <div class="picker-label" id="catLabel" data-i18n="sheet.cat"></div>
   <div class="cat-picker" id="catPicker"></div>
 
-  <div class="picker-label" data-i18n="sheet.rubro"></div>
+  <div class="picker-label" id="rubroLabel" data-i18n="sheet.rubro"></div>
   <select class="rubro-select" id="rubroSelect"></select>
 
   <div class="picker-label" id="payLabel" data-i18n="sheet.pay"></div>
   <div class="cat-picker" id="payPicker"></div>
+
+  <div class="picker-label" id="toLabel" data-i18n="sheet.payTo" hidden></div>
+  <div class="cat-picker" id="toPicker" hidden></div>
 
   <div class="meta-row">
     <input type="date" id="dateInput">

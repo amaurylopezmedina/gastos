@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v20`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v21`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -78,6 +78,9 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
   `Cache-Control: no-store` (con `no-cache` lo pisa). La API manda `no-store`; no lo cambies.
 - **Pagar otra tarjeta con esta es deuda, no gasto de vida**: las líneas tipo «COBRANZAS TARJ» llegan con rubro `cuotas` y desmarcadas; se apuntan desde Deudas para no contarlas dos veces.
 - **Un `<input type=file>`: copia la lista (`Array.from(input.files)`) ANTES de vaciar el campo**: en Chrome de escritorio la `FileList` se vacía con él (en iOS no, y por eso no se vio).
+- **Tres tipos de movimiento** (`kind`): gasto (sin kind), `income`, y `transfer` (con `to`: la cuenta destino). Una transferencia
+  mueve saldos entre tus cuentas pero NO es gasto, ni ingreso, ni presupuesto. Pagar una tarjeta o préstamo desde una cuenta es
+  un gasto con rubro `cuotas`, no una transferencia. Los totales usan `isSpend`; no cuentes `state.expenses` a pelo.
 - **Todo archivo nuevo de la app hay que añadirlo a `WEB_ARCHIVOS` en `servidor/app.py`** y al `SHELL` del
   service worker; una prueba comprueba que todo lo que cita `index.html` se sirva.
 - **Todo texto de interfaz va por `i18n.js`** (es/en, plurales `.one`/`.other`). Las categorías y

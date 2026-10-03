@@ -29,6 +29,7 @@ window.PRESUPUESTO = (() => {
     const sinRubro = [];
     const add = (id, c) => real.set(id, (real.get(id) || 0) + c);
     for (const e of entries) {
+      if (e.kind === 'transfer') continue;                 // mover dinero entre tus cuentas no es presupuesto
       if (e.rubro && window.RUBROS.get(e.rubro)) add(e.rubro, e.cents);
       else if (e.src === 'debt') add(window.RUBROS.DEBT, e.cents);          // pagos de deuda anteriores a los rubros
       else if (!isIncome(e)) sinRubro.push(e);

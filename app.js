@@ -258,6 +258,7 @@
   const catById = (id) => state.cats.find((c) => c.id === id) || null;
   const payById = (id) => state.pays.find((p) => p.id === id) || null;
 
+  const payLabel = (id) => { const p = payById(id); return p ? label(p, 'pay') : '?'; };
   const catName = (id) => {
     const c = catById(id);
     return c ? label(c, 'cat') : t('cat.none');
@@ -268,8 +269,10 @@
     return state.expenses.filter((e) => e.date.slice(0, 7) === k);
   }
   const isIncome = (e) => e.kind === 'income';
+  const isTransfer = (e) => e.kind === 'transfer';   // mover dinero entre tus cuentas: ni gasto ni ingreso
+  const isSpend = (e) => !isIncome(e) && !isTransfer(e);
   // «Gastos» no incluye los ingresos: así ningún total del mes los mezcla.
-  const expensesOfMonth = (d) => entriesOfMonth(d).filter((e) => !isIncome(e));
+  const expensesOfMonth = (d) => entriesOfMonth(d).filter(isSpend);
   const sum = (list) => list.reduce((total, e) => total + e.cents, 0);
 
   let toastTimer = null;
@@ -333,7 +336,7 @@
       head.className = 'day-head';
       head.innerHTML = '<span></span><b></b>';
       head.firstChild.textContent = dayLabel(day);
-      head.lastChild.textContent = fmt(sum(items.filter((e) => !isIncome(e))));
+      head.lastChild.textContent = fmt(sum(items.filter(isSpend)));
       body.appendChild(head);
 
       const group = document.createElement('div');
@@ -348,13 +351,15 @@
           '<span class="item-ico"></span>' +
           '<span class="item-main"><span class="item-cat"></span><span class="item-note"></span></span>' +
           '<span class="item-amount"></span>';
-        row.querySelector('.item-ico').textContent = isIncome(e) ? '\u{1F4B0}' : (cat ? cat.icon : '\u{2753}');
-        row.querySelector('.item-cat').textContent = e.rubro && window.RUBROS.get(e.rubro) ? window.RUBROS.name(e.rubro) : catName(e.cat);
+        row.querySelector('.item-ico').textContent = isTransfer(e) ? '\u{1F501}' : isIncome(e) ? '\u{1F4B0}' : (cat ? cat.icon : '\u{2753}');
+        row.querySelector('.item-cat').textContent = isTransfer(e)
+          ? t('kind.transfer') + ': ' + payLabel(e.pay) + ' \u2192 ' + payLabel(e.to)
+          : e.rubro && window.RUBROS.get(e.rubro) ? window.RUBROS.name(e.rubro) : catName(e.cat);
 
         // Subtítulo: nota + forma de pago + clip si hay foto adjunta.
         const bits = [];
         if (e.note) bits.push(e.note);
-        if (pay) bits.push(pay.icon + ' ' + label(pay, 'pay'));
+        if (pay && !isTransfer(e)) bits.push(pay.icon + ' ' + label(pay, 'pay'));
         if (e.photo) bits.push('\u{1F4CE}');
         const note = row.querySelector('.item-note');
         if (bits.length) note.textContent = bits.join('  ·  '); else note.remove();
@@ -362,6 +367,7 @@
         const amount = row.querySelector('.item-amount');
         amount.textContent = (isIncome(e) ? '+' : '') + fmt(e.cents);
         if (isIncome(e)) amount.classList.add('income');
+        if (isTransfer(e)) amount.classList.add('transfer');
         group.appendChild(row);
       }
       body.appendChild(group);
@@ -598,7 +604,8 @@
           id: expense.id,
           raw: (expense.cents / 100).toFixed(2),
           cat: expense.cat,
-          kind: expense.kind === 'income' ? 'income' : 'expense',
+          kind: expense.kind === 'income' ? 'income' : expense.kind === 'transfer' ? 'transfer' : 'expense',
+          to: expense.to || null,
           rubro: expense.rubro || null,
           pay: expense.pay || state.pays[0].id,
           date: expense.date,
@@ -608,7 +615,7 @@
           dropPhoto: false
         }
       : {
-          id: null, raw: '', cat: state.cats[0].id, kind: 'expense', rubro: null, pay: state.pays[0].id,
+          id: null, raw: '', cat: state.cats[0].id, kind: 'expense', to: null, rubro: null, pay: state.pays[0].id,
           date: ymd(new Date()), note: '', photo: null,
           newPhoto: pendingPhoto || null, dropPhoto: false
         };
@@ -649,10 +656,16 @@
   // Gasto / ingreso y rubro del presupuesto. El rubro fija la categoría de siempre.
   function renderKindRubro() {
     const income = draft.kind === 'income';
-    $('#kindExpense').classList.toggle('on', !income);
+    const transfer = draft.kind === 'transfer';
+    $('#kindExpense').classList.toggle('on', !income && !transfer);
     $('#kindIncome').classList.toggle('on', income);
-    $('#catPicker').hidden = income;
-    $('#catLabel').hidden = income;
+    $('#kindTransfer').classList.toggle('on', transfer);
+    $('#catPicker').hidden = income || transfer;
+    $('#catLabel').hidden = income || transfer;
+    $('#rubroSelect').hidden = transfer;           // una transferencia no es presupuesto
+    $('#rubroLabel').hidden = transfer;
+    $('#toLabel').hidden = !transfer;
+    $('#toPicker').hidden = !transfer;
     const sel = $('#rubroSelect');
     sel.textContent = '';
     const none = document.createElement('option');
@@ -683,15 +696,29 @@
     }
     const pays = $('#payPicker');
     pays.textContent = '';
-    // Un ingreso entra a una cuenta (o en efectivo): no a una tarjeta.
+    // Un ingreso entra a una cuenta (o en efectivo): no a una tarjeta. Una transferencia va entre cuentas.
     const accts = state.pays.filter((p) => p.kind === 'account' || p.id === 'efectivo');
-    const choices = draft.kind === 'income' && accts.some((p) => p.kind === 'account') ? accts : state.pays;
-    if (draft.kind === 'income' && !choices.some((p) => p.id === draft.pay)) draft.pay = choices[0].id;
-    $('#payLabel').textContent = t(draft.kind === 'income' ? 'sheet.payIn' : 'sheet.pay');
+    const accountsOnly = (draft.kind === 'income' || draft.kind === 'transfer') && accts.some((p) => p.kind === 'account');
+    const choices = accountsOnly ? accts : state.pays;
+    if (accountsOnly && !choices.some((p) => p.id === draft.pay)) draft.pay = choices[0].id;
+    $('#payLabel').textContent = t(draft.kind === 'income' ? 'sheet.payIn' : draft.kind === 'transfer' ? 'sheet.payFrom' : 'sheet.pay');
     for (const p of choices) {
       pays.appendChild(chip(p, 'pay', p.id === draft.pay, () => { draft.pay = p.id; renderPickers(); }));
     }
-    for (const box of [cats, pays]) {
+    const dest = $('#toPicker');
+    dest.textContent = '';
+    if (draft.kind === 'transfer') {
+      const targets = choices.filter((p) => p.id !== draft.pay);
+      // Si el destino no vale, propone una cuenta bancaria antes que el efectivo.
+      if (!targets.some((p) => p.id === draft.to)) {
+        const best = targets.find((p) => p.kind === 'account') || targets[0];
+        draft.to = best ? best.id : null;
+      }
+      for (const p of targets) {
+        dest.appendChild(chip(p, 'pay', p.id === draft.to, () => { draft.to = p.id; renderPickers(); }));
+      }
+    }
+    for (const box of [cats, pays, dest]) {
       const on = box.querySelector('.cat-chip.on');
       if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
     }
@@ -779,8 +806,14 @@
     }
 
     const income = draft.kind === 'income';
-    const cat = income ? (state.cats.some((c) => c.id === 'otros') ? 'otros' : state.cats[0].id) : draft.cat;
-    const extra = { kind: income ? 'income' : undefined, rubro: draft.rubro || undefined };
+    const transfer = draft.kind === 'transfer';
+    if (transfer && (!draft.to || draft.to === draft.pay)) return toast(t('msg.needTwoAccounts'));
+    const cat = income || transfer ? (state.cats.some((c) => c.id === 'otros') ? 'otros' : state.cats[0].id) : draft.cat;
+    const extra = {
+      kind: income ? 'income' : transfer ? 'transfer' : undefined,
+      to: transfer ? draft.to : undefined,
+      rubro: transfer ? undefined : (draft.rubro || undefined)
+    };
     if (isEdit) {
       const e = state.expenses.find((x) => x.id === draft.id);
       if (e) Object.assign(e, { cents, cat, pay: draft.pay, date, note, photo: photoId }, extra);
@@ -1003,7 +1036,7 @@
     fmt: fmt,
     toast: toast,
     currency: () => state.currency,
-    expenses: () => state.expenses.filter((e) => !isIncome(e)),
+    expenses: () => state.expenses.filter(isSpend),
     pays: () => state.pays,
     payName: (p) => label(p, 'pay'),
     catName: (id) => catName(id),
@@ -1262,7 +1295,10 @@
     if (file) window.BANDEJA.send(file);
   });
   $('#kindExpense').addEventListener('click', () => { draft.kind = 'expense'; draft.rubro = null; renderPickers(); });
-  $('#kindIncome').addEventListener('click', () => { draft.kind = 'income'; draft.rubro = null; renderPickers(); });
+  // Ingresos y transferencias parten de una cuenta bancaria si hay (no de «Efectivo», que es la primera forma de pago).
+  const firstAccount = () => state.pays.find((p) => p.kind === 'account');
+  $('#kindIncome').addEventListener('click', () => { draft.kind = 'income'; draft.rubro = null; if (firstAccount() && !draft.id) draft.pay = firstAccount().id; renderPickers(); });
+  $('#kindTransfer').addEventListener('click', () => { draft.kind = 'transfer'; draft.rubro = null; if (firstAccount() && !draft.id) draft.pay = firstAccount().id; renderPickers(); });
   $('#rubroSelect').addEventListener('change', (ev) => {
     draft.rubro = ev.target.value || null;
     const cat = draft.rubro && window.RUBROS.catOf(draft.rubro);

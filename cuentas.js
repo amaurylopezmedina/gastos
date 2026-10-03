@@ -4,7 +4,7 @@
    ingresos, la importación de estados y la bandeja de facturas:
      { id, icon, name:'BHD ···000000', kind:'account', bank:'BHD', number:'000000', opening: céntimos }
    - Mientras no se sepa el número real se deja 000000 (se edita tocando la cuenta).
-   - Saldo = saldo inicial + ingresos que entraron − gastos pagados desde la cuenta. Las tarjetas no
+   - Saldo = saldo inicial + ingresos y transferencias recibidas − gastos y transferencias enviadas. Las tarjetas no
      tocan el saldo de una cuenta: el pago de la tarjeta sí, y es un gasto con rubro «cuotas».
    - La tabla «Hasta qué día hay datos» enseña, por cuenta y tarjeta, el último movimiento cargado,
      para saber de un vistazo qué falta por importar. */
@@ -31,10 +31,11 @@ window.CUENTAS = (() => {
     let n = 0;
     let delta = 0;
     for (const e of expenses) {
-      if (e.pay !== pay.id) continue;
+      const incoming = e.kind === 'transfer' && e.to === pay.id;     // llega dinero desde otra cuenta
+      if (e.pay !== pay.id && !incoming) continue;
       n++;
       if (!last || e.date > last) last = e.date;
-      delta += e.kind === 'income' ? e.cents : -e.cents;
+      delta += incoming || e.kind === 'income' ? e.cents : -e.cents;  // sale: gasto o transferencia enviada
     }
     return { last, n, balance: (Number.isFinite(pay.opening) ? pay.opening : 0) + delta };
   }
