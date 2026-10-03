@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v24`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v25`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -81,6 +81,10 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 - **Tres tipos de movimiento** (`kind`): gasto (sin kind), `income`, y `transfer` (con `to`: la cuenta destino). Una transferencia
   mueve saldos entre tus cuentas pero NO es gasto, ni ingreso, ni presupuesto. Pagar una tarjeta o préstamo desde una cuenta es
   un gasto con rubro `cuotas`, no una transferencia. Los totales usan `isSpend`; no cuentes `state.expenses` a pelo.
+- **El árbol de trabajo ES producción** (la API sirve estos archivos tal cual, al instante). Al añadir un archivo nuevo, el orden
+  es: 1) añadirlo a `WEB_ARCHIVOS` y `systemctl --user restart gastos-api`; 2) solo entonces `index.html` y `sw.js`. Si no, Cloudflare
+  guarda el 404 hasta 4 h (`max-age=14400`) y los teléfonos no actualizan. Sin permiso de purga, el remedio es cambiar la URL
+  (`archivo.js?v=N`, como `bolsillo.js?v=25`). Ahora la API manda `no-store` también en los errores.
 - **Todo archivo nuevo de la app hay que añadirlo a `WEB_ARCHIVOS` en `servidor/app.py`** y al `SHELL` del
   service worker; una prueba comprueba que todo lo que cita `index.html` se sirva.
 - **Todo texto de interfaz va por `i18n.js`** (es/en, plurales `.one`/`.other`). Las categorías y
