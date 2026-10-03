@@ -26,6 +26,22 @@ def _importe(linea):
     return a_centimos(m[-1]) if m else None
 
 
+def _triple(texto):
+    """Busca en TODO el texto tres importes donde dos suman el tercero y uno es el 18 % de la base (Monto + ITBIS = Total).
+    No depende de en que linea haya caido cada numero, asi que sobrevive a un OCR desalineado. -> (total, itbis, base) o None."""
+    importes = sorted({a_centimos(m) for m in _IMPORTE.findall(texto.replace('O', '0').replace('o', '0'))} - {None, 0})
+    mejor = None
+    for z in importes:
+        for x in importes:
+            y = z - x
+            if y < x or y not in importes:
+                continue
+            base, itbis = y, x                                  # x <= y: el ITBIS es el menor
+            if abs(round(base * 0.18) - itbis) <= 2 and (mejor is None or z > mejor[0]):
+                mejor = (z, itbis, base)
+    return mejor
+
+
 def _linea(texto, patron):
     for l in texto.splitlines():
         if re.match(patron, l.strip(), re.I):
@@ -81,6 +97,9 @@ def leer(texto, ref=None):
     itbis = _importe(_linea(texto, r'itbis\b') or '')
     prop = _importe(_linea(texto, r'propina\b') or '') or 0
     monto = _importe(_linea(texto, r'[mhn]o[nm]to\b|sub ?total\b') or '')
+    t3 = _triple(texto)
+    if t3 and not prop:                          # tres importes que suman exactamente y con ITBIS del 18 %: eso manda sobre las etiquetas
+        total, itbis, monto = t3
     if not total or total <= 0:
         problemas.append('total_invalido')
     else:

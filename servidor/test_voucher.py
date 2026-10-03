@@ -81,3 +81,17 @@ def test_sin_itbis_el_total_es_el_monto():
     t = voucher().replace('ITBIS:  180.00', 'ITBIS:  0.00').replace('Honto:  00  1,000.51', 'Monto:  DOP  1,180.00')
     campos, problemas = v.leer(t, REF)
     assert campos['total'] == 118000 and 'montos_no_cuadran' not in problemas
+
+
+def test_importes_desalineados_por_un_ticket_inclinado():
+    """El OCR puso cada importe en la linea de la etiqueta de abajo (caso real de una foto inclinada)."""
+    t = voucher().replace('Honto:  00  1,000.51', 'Lote #:000001  0000  1,000.00').replace('ITBIS:  180.00', 'Honto:  180.00') \
+        .replace('Total:  DOP  1,180.00', 'ITBIS:  1,180.00\nTotal:  DOP').replace('Lote #:000001\n', '')
+    campos, problemas = v.leer(t, REF)
+    assert campos['total'] == 118000 and campos['itbis'] == 18000 and campos['subtotal'] == 100000 and problemas == []
+
+
+def test_el_triple_aritmetico_no_se_inventa_con_numeros_sueltos():
+    assert v._triple('Tran 100.00\nLote 250.00\nTotal 999.00') is None
+    assert v._triple('Monto 1,000.00 ITBIS 180.00 Total 1,180.00') == (118000, 18000, 100000)
+    assert v._triple('Monto 1,000.00 ITBIS 300.00 Total 1,300.00') is None          # 300 no es el 18 % de 1,000

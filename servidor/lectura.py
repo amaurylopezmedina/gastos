@@ -1,7 +1,9 @@
 """OCR + extraccion de campos. El texto del OCR es DATO, nunca instrucciones."""
 import json
+import math
 import os
 import re
+import statistics
 import threading
 import httpx
 import rubros
@@ -17,21 +19,34 @@ _ocr = None
 _candado = threading.Lock()      # RapidOCR no es seguro entre hilos: la cola de facturas y el lector de tarjetas lo comparten
 
 
-def ocr(ruta):
-    """-> (texto en lineas, confianza media 0-1)."""
-    global _ocr
-    if _ocr is None:
-        from rapidocr_onnxruntime import RapidOCR
-        _ocr = RapidOCR()
-    with _candado:
-        res, _ = _ocr(ruta)
+def _angulo(res):
+    """Inclinacion del texto en radianes: mediana del angulo del borde superior de las cajas que son lineas de texto.
+    Un ticket fotografiado a mano sale inclinado y, sin corregirlo, el importe de la derecha cae en la linea de abajo."""
+    angs = []
+    for caja, _t, _p in res:
+        (x0, y0), (x1, y1), (x3, y3) = caja[0], caja[1], caja[3]
+        ancho, alto = math.hypot(x1 - x0, y1 - y0), math.hypot(x3 - x0, y3 - y0)
+        if alto > 0 and ancho >= 2 * alto:
+            angs.append(math.atan2(y1 - y0, x1 - x0))
+    if len(angs) < 3:
+        return 0.0
+    a = statistics.median(angs)
+    return a if 0.008 < abs(a) < 0.44 else 0.0          # entre ~0.5 y ~25 grados
+
+
+def agrupar(res):
+    """Cajas del OCR [(cuatro_puntos, texto, puntaje)] -> (texto en lineas, confianza media). Endereza y agrupa por altura."""
     if not res:
         return '', 0.0
+    ang = _angulo(res)
+    ca, sa = math.cos(ang), math.sin(ang)
     items = []
     for caja, texto, puntaje in res:
-        ys = [p[1] for p in caja]
-        xs = [p[0] for p in caja]
-        items.append((sum(ys) / 4, min(xs), max(ys) - min(ys), texto, float(puntaje)))
+        cx = sum(p[0] for p in caja) / 4
+        cy = sum(p[1] for p in caja) / 4
+        x, y = cx * ca + cy * sa, -cx * sa + cy * ca          # coordenadas con el texto horizontal
+        alto = math.hypot(caja[3][0] - caja[0][0], caja[3][1] - caja[0][1])
+        items.append((y, x, alto, texto, float(puntaje)))
     items.sort()
     lineas, actual, y0, alto = [], [], None, 0
     for y, x, h, texto, _p in items:
@@ -42,8 +57,18 @@ def ocr(ruta):
         actual.append((x, texto))
     if actual:
         lineas.append(actual)
-    texto = '\n'.join('  '.join(t for _x, t in sorted(l)) for l in lineas)
-    return texto, sum(i[4] for i in items) / len(items)
+    return '\n'.join('  '.join(t for _x, t in sorted(l)) for l in lineas), sum(i[4] for i in items) / len(items)
+
+
+def ocr(ruta):
+    """-> (texto en lineas, confianza media 0-1)."""
+    global _ocr
+    if _ocr is None:
+        from rapidocr_onnxruntime import RapidOCR
+        _ocr = RapidOCR()
+    with _candado:
+        res, _ = _ocr(ruta)
+    return agrupar(res)
 
 
 def heuristica(texto):
