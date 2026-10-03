@@ -32,6 +32,15 @@ app = FastAPI(title='Gastos', docs_url=None, redoc_url=None, openapi_url=None,
               dependencies=[Depends(exigir)])
 api = APIRouter(prefix='/api')
 
+
+@app.middleware('http')
+async def sin_cache(request: Request, call_next):
+    """Cloudflare guarda unos minutos hasta los 404 de un .js; nada de esta app debe cachearse en el borde."""
+    resp = await call_next(request)
+    if 'cache-control' not in resp.headers:
+        resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
 _local = threading.local()
 
 

@@ -176,3 +176,9 @@ def test_lo_que_el_usuario_corrige_se_aprende_y_manda(c):
 
 def test_clasificar_limita_el_tamano(c):
     assert c.post('/api/clasificar', json={'comercios': ['x'] * 1001}).status_code == 413
+
+
+def test_ninguna_respuesta_se_puede_cachear_en_el_borde(c):
+    """Ni siquiera los errores: Cloudflare cachea un 404 de un .js durante minutos."""
+    for ruta in ('/', '/app.js', '/no-existe.js', '/api/estado', '/api/fotos/nada', '/PRIVADO/x.js'):
+        assert c.get(ruta).headers.get('cache-control') == 'no-store', ruta
