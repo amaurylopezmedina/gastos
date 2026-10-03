@@ -1325,12 +1325,22 @@
   $$('.tab[data-go]').forEach((tab) => tab.addEventListener('click', () => go(tab.dataset.go)));
 
   $('#openAdd').addEventListener('click', () => openSheet(null));
-  // La cámara manda la factura a la IA del servidor; el «+» sigue siendo apuntar a mano.
+  /* Un solo botón para subir documentos (el «+» sigue siendo apuntar a mano). Se admiten varios a la vez y mezclados:
+     - fotos de facturas y vouchers → IA del servidor → bandeja de revisión;
+     - estados de cuenta en PDF o CSV → se leen aquí, se clasifican por rubro y pasan a la pantalla de revisión,
+       donde actualizan los gastos (sin duplicar lo ya apuntado) y la tabla «Hasta qué día hay datos». */
+  const isStatementFile = (f) => /\.(pdf|csv)$/i.test(f.name || '') || /pdf|csv/i.test(f.type || '');
+  const isImageFile = (f) => /^image\//i.test(f.type || '') || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name || '');
   $('#openCam').addEventListener('click', () => $('#aiFile').click());
-  $('#aiFile').addEventListener('change', (ev) => {
-    const file = ev.target.files[0];
+  $('#aiFile').addEventListener('change', async (ev) => {
+    const files = Array.from(ev.target.files);       // copia: en Chrome la lista se vacía con el campo
     ev.target.value = '';
-    if (file) window.BANDEJA.send(file);
+    const docs = files.filter(isStatementFile);
+    const photos = files.filter((f) => !isStatementFile(f) && isImageFile(f));
+    const ignored = files.length - docs.length - photos.length;
+    if (ignored) toast(tn('msg.upIgnored', ignored));
+    for (const f of photos) await window.BANDEJA.send(f);
+    if (docs.length) window.STATEMENT.open(docs);
   });
   $('#kindExpense').addEventListener('click', () => { draft.kind = 'expense'; draft.rubro = null; renderPickers(); });
   // Ingresos y transferencias parten de una cuenta bancaria si hay (no de «Efectivo», que es la primera forma de pago).

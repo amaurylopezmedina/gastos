@@ -166,6 +166,8 @@ window.I18N = (() => {
       'bnd.p.montos_no_cuadran': 'Monto + ITBIS no cuadran con el total: revisa el importe.',
       'bnd.p.fecha_supuesta': 'No pude leer la fecha: puse la del día de la foto. Confírmala.',
       'bnd.p.moneda_extranjera': 'El comprobante parece estar en otra moneda.',
+      'msg.upIgnored.one': 'Ignoré {n} archivo: solo admito fotos, PDF y CSV.',
+      'msg.upIgnored.other': 'Ignoré {n} archivos: solo admito fotos, PDF y CSV.',
       'set.storage': 'Tus datos se guardan en tu servidor y se copian en este dispositivo: así abren al instante y funcionan sin conexión. Exporta una copia de vez en cuando.',
       'set.usage.count.one': '{n} gasto',
       'set.usage.count.other': '{n} gastos',
@@ -189,7 +191,7 @@ window.I18N = (() => {
       'photo.close': 'Cerrar',
 
       'fab.add': 'Añadir gasto',
-      'fab.cam': 'Fotografiar factura',
+      'fab.cam': 'Subir factura o estado de cuenta',
 
       'msg.saved': 'Guardado',
       'msg.added': 'Gasto añadido',
@@ -518,6 +520,8 @@ window.I18N = (() => {
       'bnd.p.montos_no_cuadran': 'Amount + tax do not match the total: check the amount.',
       'bnd.p.fecha_supuesta': 'I could not read the date: I used the photo date. Please confirm it.',
       'bnd.p.moneda_extranjera': 'The slip seems to be in another currency.',
+      'msg.upIgnored.one': 'Ignored {n} file: only photos, PDF and CSV are supported.',
+      'msg.upIgnored.other': 'Ignored {n} files: only photos, PDF and CSV are supported.',
       'set.storage': 'Your data is stored on your server and copied to this device, so it opens instantly and works offline. Export a copy now and then.',
       'set.usage.count.one': '{n} expense',
       'set.usage.count.other': '{n} expenses',
@@ -541,7 +545,7 @@ window.I18N = (() => {
       'photo.close': 'Close',
 
       'fab.add': 'Add expense',
-      'fab.cam': 'Photograph receipt',
+      'fab.cam': 'Upload receipt or statement',
 
       'msg.saved': 'Saved',
       'msg.added': 'Expense added',
