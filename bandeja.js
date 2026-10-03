@@ -51,40 +51,88 @@ window.BANDEJA = (() => {
 
   /* ---------------- Lista ---------------- */
 
-  const ICON = { nueva: '⏳', leyendo: '⏳', listo: '✅', revisar: '⚠️' };
+  const ICON = { nueva: '⏳', leyendo: '⏳', listo: '✅', revisar: '⚠️', aplicada: '\u{1F4E5}', descartada: '\u{1F5D1}️' };
+  const PENDING = ['nueva', 'leyendo', 'listo', 'revisar'];
+  const STUCK_S = 300;                              // una lectura que lleva más de 5 min parece atascada
+
+  const isPending = (it) => PENDING.indexOf(it.estado) >= 0;
+  const isStuck = (it) => (it.estado === 'nueva' || it.estado === 'leyendo') && (Date.now() / 1000 - it.creada) > STUCK_S;
+  // ¿Conviene ofrecer «Reprocesar» en la fila? Lo que falló, lo descartado y lo atascado. Lo cargado nunca.
+  const canReprocess = (it) => it.estado === 'revisar' || it.estado === 'descartada' || isStuck(it);
+
+  function when(it) {
+    const d = new Date(it.creada * 1000);
+    return d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
 
   async function refresh() {
     try {
-      const r = await api('/facturas');
+      const r = await api('/facturas?estado=todas');
       if (!r.ok) throw new Error('http');
       items = await r.json();
     } catch (_) {
       return;                                     // sin conexión: se deja lo último que se vio
     }
+    const pend = items.filter(isPending);
     for (const banner of document.querySelectorAll('.bnd-banner')) {
-      banner.hidden = items.length === 0;
-      banner.textContent = items.length ? t('bnd.banner', { n: items.length }) : '';
+      banner.hidden = pend.length === 0;
+      banner.textContent = pend.length ? t('bnd.banner', { n: pend.length }) : '';
     }
+    const count = $('#docsCount');
+    if (count) count.textContent = items.length ? String(items.length) : '›';
     if (!$('#bndSheet').hidden && !current) paintList();
     clearTimeout(timer);
     if (items.some((i) => i.estado === 'nueva' || i.estado === 'leyendo')) timer = setTimeout(refresh, 6000);
   }
 
+  function docRow(it) {
+    const c = it.campos || {};
+    const row = el('div', 'row bnd-doc');
+    const main = el('button', 'bnd-doc-main');
+    main.type = 'button';
+    const title = el('span', 'bnd-doc-title', (ICON[it.estado] || '') + ' ' + (c.comercio || t('bnd.unread')));
+    const sub = (isStuck(it) ? t('bnd.stuck') : t('bnd.st.' + it.estado)) + ' · ' + when(it);
+    const hint = it.estado === 'revisar' && (it.problemas || [])[0] ? ' · ' + (t('bnd.p.' + it.problemas[0]) === 'bnd.p.' + it.problemas[0] ? it.problemas[0] : t('bnd.p.' + it.problemas[0])) : '';
+    main.append(title, el('small', 'bnd-doc-sub', sub + hint));
+    main.addEventListener('click', () => openDetail(it.id));
+    row.appendChild(main);
+    row.appendChild(el('span', 'bnd-doc-amt', Number.isFinite(c.total) ? host.fmt(c.total) : ''));
+    if (canReprocess(it)) {
+      const act = el('button', 'bnd-doc-act', '↻');
+      act.type = 'button';
+      act.setAttribute('aria-label', t('bnd.reprocess'));
+      act.title = t('bnd.reprocess');
+      act.addEventListener('click', () => reprocess(it.id));
+      row.appendChild(act);
+    }
+    return row;
+  }
+
   function paintList() {
     const box = $('#bndList');
     box.replaceChildren();
-    if (!items.length) { box.appendChild(el('p', 'note', t('bnd.empty'))); return; }
-    for (const it of items) {
-      const c = it.campos || {};
-      const row = el('button', 'row action');
-      row.type = 'button';
-      row.append(
-        el('span', null, (ICON[it.estado] || '') + ' ' + (c.comercio || t('bnd.reading'))),
-        el('span', 'chev', Number.isFinite(c.total) ? host.fmt(c.total) : '')
-      );
-      row.addEventListener('click', () => openDetail(it.id));
-      box.appendChild(row);
+    if (!items.length) { box.appendChild(el('p', 'note', t('bnd.emptyAll'))); return; }
+    const sections = [
+      ['bnd.sec.pending', items.filter(isPending)],
+      ['bnd.sec.loaded', items.filter((i) => i.estado === 'aplicada')],
+      ['bnd.sec.discarded', items.filter((i) => i.estado === 'descartada')]
+    ];
+    for (const [key, list] of sections) {
+      if (!list.length) continue;
+      box.appendChild(el('div', 'bnd-sec', t(key) + ' (' + list.length + ')'));
+      for (const it of list) box.appendChild(docRow(it));
     }
+  }
+
+  async function reprocess(id) {
+    try {
+      const r = await api('/facturas/' + enc(id) + '/reprocesar', { method: 'POST' });
+      if (r.status === 409) return host.toast(t('bnd.alreadyLoaded'));
+      if (!r.ok) throw new Error('http ' + r.status);
+      host.toast(t('bnd.reprocessing'));
+      if (current) backToList(false);
+      refresh();
+    } catch (_) { host.toast(t('bnd.fail')); }
   }
 
   /* ---------------- Detalle ---------------- */
@@ -121,7 +169,7 @@ window.BANDEJA = (() => {
       const o = el('option', null, host.payName(p));
       o.value = p.id;
       sel.appendChild(o);
-      if (card && p.kind !== 'account' && host.payName(p).indexOf('\u00b7\u00b7\u00b7' + card) >= 0) match = p.id;
+      if (card && p.kind !== 'account' && p.kind !== 'pocket' && host.payName(p).indexOf('\u00b7\u00b7\u00b7' + card) >= 0) match = p.id;
     }
     if (card && !match) {
       const name = t('imp.cardName', { n: card });
@@ -137,7 +185,7 @@ window.BANDEJA = (() => {
 
   function cardNote() {
     const p = host.pays().find((x) => x.id === $('#bndPay').value);
-    $('#bndCardNote').hidden = !(($('#bndPay').value === '__new__') || (p && p.id !== 'efectivo' && p.id !== 'transfer' && p.kind !== 'account'));
+    $('#bndCardNote').hidden = !(($('#bndPay').value === '__new__') || (p && p.id !== 'efectivo' && p.id !== 'transfer' && p.kind !== 'account' && p.kind !== 'pocket'));
   }
 
   async function openDetail(id) {
@@ -145,9 +193,14 @@ window.BANDEJA = (() => {
     if (!it) return;
     current = it;
     const c = it.campos || {};
+    const loaded = it.estado === 'aplicada';
     $('#bndListView').hidden = true;
     $('#bndDetail').hidden = false;
-    $('#bndTitle').textContent = t('bnd.detail');
+    $('#bndTitle').textContent = t(loaded ? 'bnd.detailLoaded' : 'bnd.detail');
+    $('#bndFormBox').hidden = loaded;                // lo ya cargado se consulta, no se vuelve a apuntar
+    $('#bndActions').hidden = loaded;
+    $('#bndLoadedBox').hidden = !loaded;
+    $('#bndReprocess').hidden = loaded;
     $('#bndComercio').value = c.comercio || '';
     $('#bndFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : '';
     $('#bndTotal').value = Number.isFinite(c.total) ? host.amountText(c.total) : '';
@@ -164,7 +217,7 @@ window.BANDEJA = (() => {
     }
     probs.hidden = !probs.children.length;
     const busy = it.estado === 'nueva' || it.estado === 'leyendo';
-    $('#bndInfo').textContent = busy ? t('bnd.wait') : (c.tarjeta ? t('bnd.card', { n: c.tarjeta }) : '');
+    $('#bndInfo').textContent = loaded ? t('bnd.alreadyLoaded') : busy ? t('bnd.wait') : (c.tarjeta ? t('bnd.card', { n: c.tarjeta }) : '');
     $('#bndApply').disabled = busy;
 
     $('#bndPhoto').hidden = true;
@@ -178,14 +231,14 @@ window.BANDEJA = (() => {
     } catch (_) { /* sin foto: se puede revisar igual */ }
   }
 
-  function backToList() {
+  // `done` = se acaba de cargar o descartar algo: si ya no queda nada por revisar, la hoja se cierra sola.
+  function backToList(done) {
     current = null;
     $('#bndDetail').hidden = true;
     $('#bndListView').hidden = false;
-    $('#bndTitle').textContent = t('bnd.open');
+    $('#bndTitle').textContent = t('docs.title');
     if (photoUrl) { URL.revokeObjectURL(photoUrl); photoUrl = null; }
-    // Si no queda nada por revisar, la hoja se cierra sola.
-    refresh().then(() => { if (!items.length) closeSheet(); else paintList(); });
+    refresh().then(() => { if (done && !items.some(isPending)) closeSheet(); else paintList(); });
   }
 
   async function apply() {
@@ -224,7 +277,7 @@ window.BANDEJA = (() => {
       const done = await api('/facturas/' + enc(it.id) + '/estado', { method: 'POST', headers: json, body: JSON.stringify({ estado: 'aplicada' }) });
       if (!done.ok) throw new Error('http ' + done.status);
       host.toast(t('bnd.applied'));
-      backToList();
+      backToList(true);
     } catch (_) {
       host.toast(t('bnd.fail'));
     } finally {
@@ -237,7 +290,7 @@ window.BANDEJA = (() => {
     try {
       const r = await api('/facturas/' + enc(current.id) + '/estado', { method: 'POST', headers: json, body: JSON.stringify({ estado: 'descartada' }) });
       if (!r.ok) throw new Error('http');
-      backToList();
+      backToList(true);
     } catch (_) { host.toast(t('bnd.fail')); }
   }
 
@@ -247,7 +300,7 @@ window.BANDEJA = (() => {
     current = null;
     $('#bndDetail').hidden = true;
     $('#bndListView').hidden = false;
-    $('#bndTitle').textContent = t('bnd.open');
+    $('#bndTitle').textContent = t('docs.title');
     $('#bndBackdrop').hidden = false;
     $('#bndSheet').hidden = false;
     paintList();
@@ -265,7 +318,11 @@ window.BANDEJA = (() => {
   function init(bridge) {
     host = bridge;
     for (const banner of document.querySelectorAll('.bnd-banner')) banner.addEventListener('click', openSheet);
-    $('#bndClose').addEventListener('click', () => (current ? backToList() : closeSheet()));
+    $('#bndClose').addEventListener('click', () => (current ? backToList(false) : closeSheet()));
+    $('#bndReprocess').addEventListener('click', () => current && reprocess(current.id));
+    $('#bndViewExpense').addEventListener('click', () => { if (current) { host.openExpense('f_' + current.id); } });
+    const docs = $('#docsOpen');
+    if (docs) docs.addEventListener('click', openSheet);
     $('#bndBackdrop').addEventListener('click', closeSheet);
     $('#bndApply').addEventListener('click', apply);
     $('#bndDiscard').addEventListener('click', discard);

@@ -16,7 +16,7 @@
 window.BOLSILLO = (() => {
   'use strict';
 
-  const CASH = 'efectivo';
+  const CASH = 'bolsillo';             // la forma de pago «Bolsillo efectivo» (la de «Efectivo» a secas es otra cosa)
   const KEEP_COUNTS = 50;
   let host = null;
   const $ = (s) => document.querySelector(s);

@@ -205,3 +205,98 @@ def test_voucher_de_tarjeta_se_lee_sin_modelo_y_propone_la_tarjeta(c, monkeypatc
     assert f['leida_por'] == 'voucher' and f['estado'] == 'listo' and f['problemas'] == []
     assert k['total'] == 118000 and k['itbis'] == 18000 and k['subtotal'] == 100000 and k['tarjeta'] == '9999'
     assert k['rubro'] == 'mant_veh' and k['categoria'] == 'transpor'
+
+
+def _esperar(c, fid, hasta=('listo', 'revisar', 'aplicada', 'descartada')):
+    import time
+    for _ in range(300):
+        f = c.get(f'/api/facturas/{fid}').json()
+        if f['estado'] in hasta:
+            return f
+        time.sleep(0.05)
+    raise AssertionError('no termino: ' + f['estado'])
+
+
+def test_lista_de_todos_los_documentos_y_reprocesar(c, monkeypatch):
+    llamadas = []
+    def ocr(ruta):
+        llamadas.append(ruta)
+        return ('' if len(llamadas) == 1 else 'SUPERMERCADO EJEMPLO\nTOTAL 1,239.00', 0.9)       # la 1a lectura sale vacia
+    monkeypatch.setattr(servidor.lectura, 'ocr', ocr)
+    monkeypatch.setattr(servidor.lectura, 'ollama', lambda t: {'comercio': 'Supermercado Ejemplo', 'fecha': '2026-10-01', 'total': 123900,
+                                                                 'tipo': 'gasto', 'lineas': []} if t else None)
+    monkeypatch.setattr(servidor.lectura, 'clasificar_llm', lambda comercio, lineas: None)
+    fid = c.post('/api/facturas', files={'archivo': ('f.jpg', jpg('cyan'), 'image/jpeg')}).json()['id']
+    f = _esperar(c, fid)
+    assert f['estado'] == 'revisar'                                   # no se pudo leer
+    # reprocesar: vuelve a leerse y esta vez sale bien
+    r = c.post(f'/api/facturas/{fid}/reprocesar').json()
+    assert r['ok'] is True
+    f = _esperar(c, fid)
+    assert f['estado'] == 'listo' and f['campos']['total'] == 123900 and len(llamadas) == 2
+    # aparece en la lista completa, tambien despues de cargarse
+    assert c.post(f'/api/facturas/{fid}/estado', json={'estado': 'aplicada'}).status_code == 200
+    todas = c.get('/api/facturas?estado=todas').json()
+    assert fid in [x['id'] for x in todas] and fid not in [x['id'] for x in c.get('/api/facturas').json()]
+    # lo ya cargado no se reprocesa
+    assert c.post(f'/api/facturas/{fid}/reprocesar').status_code == 409
+    assert c.post('/api/facturas/0000000000000000/reprocesar').status_code == 404
+
+
+def test_reprocesar_una_descartada_y_no_duplicar_lecturas(c, monkeypatch):
+    import time
+    monkeypatch.setattr(servidor.lectura, 'ocr', lambda ruta: (time.sleep(0.4), ('TIENDA EJEMPLO\nTOTAL 10.00', 0.9))[1])
+    monkeypatch.setattr(servidor.lectura, 'ollama', lambda t: {'comercio': 'Tienda Ejemplo', 'fecha': '2026-10-01', 'total': 1000, 'tipo': 'gasto', 'lineas': []})
+    monkeypatch.setattr(servidor.lectura, 'clasificar_llm', lambda comercio, lineas: None)
+    fid = c.post('/api/facturas', files={'archivo': ('f.jpg', jpg('gray'), 'image/jpeg')}).json()['id']
+    # mientras se lee, pedir reprocesar no lanza una segunda lectura
+    assert c.post(f'/api/facturas/{fid}/reprocesar').json()['ya_en_cola'] is True
+    _esperar(c, fid)
+    assert c.post(f'/api/facturas/{fid}/estado', json={'estado': 'descartada'}).status_code == 200
+    assert c.post(f'/api/facturas/{fid}/reprocesar').json()['ya_en_cola'] is False       # una descartada se puede recuperar
+    assert _esperar(c, fid)['estado'] in ('listo', 'revisar')
+
+
+def test_foto_de_tarjeta_devuelve_solo_lo_imprescindible_y_no_guarda_nada(c, monkeypatch):
+    import os
+    from pathlib import Path
+    texto = 'BHD\nVISA CREDITO\n4111 1111 1111 9876\nVALID THRU 12/29\nCVV 123\nJUAN EJEMPLO PEREZ'
+    rutas = []
+    def falso_ocr(ruta):
+        rutas.append(ruta)
+        assert os.path.exists(ruta)                       # existe mientras se lee...
+        return texto, 0.9
+    monkeypatch.setattr(servidor.lectura, 'ocr', falso_ocr)
+    antes_db = servidor.con().execute('SELECT COUNT(*) FROM facturas').fetchone()[0]
+    antes_fotos = len(list(servidor.FOTOS.glob('*')))
+    r = c.post('/api/tarjeta', files={'archivo': ('t.jpg', jpg('gold'), 'image/jpeg')})
+    assert r.status_code == 200
+    assert r.json() == {'ultimos4': '9876', 'marca': 'Visa', 'banco': 'BHD', 'tipo': 'credito'}
+    blob = r.text
+    for secreto in ('4111', '1111', '12/29', '123', 'JUAN', 'PEREZ', 'texto'):
+        assert secreto not in blob
+    assert not os.path.exists(rutas[0])                   # ...y se borra al terminar
+    assert servidor.con().execute('SELECT COUNT(*) FROM facturas').fetchone()[0] == antes_db
+    assert len(list(servidor.FOTOS.glob('*'))) == antes_fotos          # no se guardo la foto
+
+
+def test_foto_de_tarjeta_valida_el_archivo(c):
+    assert c.post('/api/tarjeta', files={'archivo': ('t.jpg', b'no es imagen', 'image/jpeg')}).status_code == 415
+
+
+def test_foto_sin_texto_no_se_inventa_nada(c, monkeypatch):
+    monkeypatch.setattr(servidor.lectura, 'ocr', lambda ruta: ('', 0.0))
+    def no_debe_llamarse(*a, **k): raise AssertionError('sin texto no se consulta al modelo')
+    monkeypatch.setattr(servidor.lectura, 'ollama', no_debe_llamarse)
+    monkeypatch.setattr(servidor.lectura, 'clasificar_llm', no_debe_llamarse)
+    fid = c.post('/api/facturas', files={'archivo': ('f.jpg', jpg('white', (30, 30)), 'image/jpeg')}).json()['id']
+    f = _esperar(c, fid)
+    assert f['estado'] == 'revisar' and 'sin_texto' in f['problemas'] and f['campos']['comercio'] is None and f['leida_por'] == 'sin_texto'
+
+
+def test_el_modelo_no_puede_llamar_null_a_un_comercio(monkeypatch):
+    class R:
+        def raise_for_status(self): pass
+        def json(self): return {'message': {'content': '{"comercio": "null", "fecha": "2026-10-01", "total": "10.00", "tipo": "gasto", "lineas": []}'}}
+    monkeypatch.setattr(servidor.lectura.httpx, 'post', lambda *a, **k: R())
+    assert servidor.lectura.ollama('algo de texto largo')['comercio'] == ''

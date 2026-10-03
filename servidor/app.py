@@ -7,6 +7,7 @@ import os
 import queue
 import re
 import sqlite3
+import tempfile
 import threading
 import time
 from datetime import date, datetime
@@ -21,6 +22,7 @@ import lectura
 import reglas_rubro
 import rubros
 import verificar
+import tarjeta
 import voucher
 from acceso import exigir
 
@@ -79,6 +81,12 @@ def fila(r, completo=False):
 # ---------------------------------------------------------------- procesado
 
 cola = queue.Queue()
+_pendientes = set()          # ids en cola o leyendose ahora: evita lanzar dos lecturas de la misma foto
+
+
+def encolar(fid):
+    _pendientes.add(fid)
+    cola.put(fid)
 
 
 def decidir_rubro(c, campos, texto, usar_ia):
@@ -98,6 +106,13 @@ def decidir_rubro(c, campos, texto, usar_ia):
 
 
 def procesar(fid):
+    try:
+        _procesar(fid)
+    finally:
+        _pendientes.discard(fid)
+
+
+def _procesar(fid):
     c = con()
     c.execute("UPDATE facturas SET estado='leyendo' WHERE id=?", (fid,))
     c.commit()
@@ -110,16 +125,20 @@ def procesar(fid):
         if v:
             campos, extra = v
             por = 'voucher'
+        elif len(re.sub(r'\W', '', texto)) < 8:       # el OCR no vio texto: no se le pregunta nada al modelo (inventaria un comercio)
+            campos = {'comercio': None, 'fecha': None, 'total': None, 'lineas': [], 'rubro': None, 'categoria': 'otros', 'moneda': 'DOP', 'tipo': 'gasto'}
+            por = 'sin_texto'
+            extra = ['sin_texto']
         else:
             campos = lectura.ollama(texto)
             por = 'ollama'
             if campos is None:                   # sin IA: solo expresiones regulares, siempre a revisar
                 campos, por = lectura.heuristica(texto), 'heuristica'
                 campos['total'] = campos.get('total')
-        campos['rubro'], campos['rubro_por'] = decidir_rubro(c, campos, texto, usar_ia=(por in ('ollama', 'voucher')))
+        campos['rubro'], campos['rubro_por'] = (None, None) if por == 'sin_texto' else decidir_rubro(c, campos, texto, usar_ia=(por in ('ollama', 'voucher')))
         campos['categoria'] = rubros.CATEGORIA.get(campos['rubro'], 'otros')
         problemas = verificar.verificar(campos, texto, conf) + extra
-        if por not in ('ollama', 'voucher'):
+        if por not in ('ollama', 'voucher', 'sin_texto'):
             problemas.append('sin_ia')
         estado = 'listo' if not problemas else 'revisar'
         c.execute('UPDATE facturas SET estado=?, ocr_texto=?, ocr_conf=?, campos=?, problemas=?, leida_por=?, error=NULL WHERE id=? AND estado=\'leyendo\'',
@@ -139,7 +158,7 @@ def trabajador():
 def arrancar():
     threading.Thread(target=trabajador, daemon=True).start()
     for r in con().execute("SELECT id FROM facturas WHERE estado IN ('nueva','leyendo')"):
-        cola.put(r['id'])
+        encolar(r['id'])
 
 
 # ---------------------------------------------------------------- rutas
@@ -176,13 +195,14 @@ async def subir(archivo: UploadFile = File(...)):
     (FOTOS / f'{fid}.jpg').write_bytes(buf.getvalue())
     c.execute("INSERT INTO facturas(id, creada, estado) VALUES(?,?,'nueva')", (fid, time.time()))
     c.commit()
-    cola.put(fid)
+    encolar(fid)
     return {'id': fid, 'repetida': False}
 
 
 @api.get('/facturas')
 def listar(estado: str = 'nueva,leyendo,listo,revisar'):
-    est = [e for e in estado.split(',') if e in ('nueva', 'leyendo', 'listo', 'revisar', 'aplicada', 'descartada')]
+    todos = ('nueva', 'leyendo', 'listo', 'revisar', 'aplicada', 'descartada')
+    est = list(todos) if estado == 'todas' else [e for e in estado.split(',') if e in todos]
     q = ','.join('?' * len(est))
     rows = con().execute(f'SELECT * FROM facturas WHERE estado IN ({q}) ORDER BY creada DESC LIMIT 200', est)
     return [fila(r) for r in rows]
@@ -202,10 +222,48 @@ def detalle(fid: str):
     return fila(obtener(fid), completo=True)
 
 
+@api.post('/tarjeta')
+def leer_tarjeta(archivo: UploadFile = File(...)):
+    """Lee la foto de una tarjeta y devuelve SOLO banco, marca, tipo y los 4 ultimos digitos. La foto no se guarda: se
+    procesa en un archivo temporal que se borra al terminar, y el texto leido no se devuelve ni se registra."""
+    datos = archivo.file.read(MAX_BYTES + 1)
+    if len(datos) > MAX_BYTES:
+        raise HTTPException(413, 'archivo demasiado grande')
+    try:
+        img = Image.open(io.BytesIO(datos))
+        img.load()
+        if img.format not in ('JPEG', 'PNG', 'WEBP'):
+            raise ValueError
+        img = ImageOps.exif_transpose(img).convert('RGB')
+    except Exception:
+        raise HTTPException(415, 'imagen no valida')
+    img.thumbnail((2000, 2000))
+    with tempfile.NamedTemporaryFile(suffix='.jpg') as tmp:            # se borra solo al salir del bloque
+        img.save(tmp, 'JPEG', quality=90)
+        tmp.flush()
+        texto, _conf = lectura.ocr(tmp.name)
+    return tarjeta.leer(texto)
+
+
 @api.get('/facturas/{fid}/foto')
 def foto(fid: str):
     obtener(fid)
     return FileResponse(FOTOS / f'{fid}.jpg', media_type='image/jpeg', headers={'Cache-Control': 'private, max-age=86400'})
+
+
+@api.post('/facturas/{fid}/reprocesar')
+def reprocesar(fid: str):
+    """Vuelve a leer una foto que no llego a cargarse (fallo, dudosa, descartada...). Lo ya cargado no se toca."""
+    r = obtener(fid)
+    if r['estado'] == 'aplicada':
+        raise HTTPException(409, 'ya esta cargada')
+    if fid in _pendientes:
+        return {'ok': True, 'ya_en_cola': True}
+    db = con()
+    db.execute("UPDATE facturas SET estado='nueva', campos=NULL, problemas=NULL, error=NULL, leida_por=NULL WHERE id=?", (fid,))
+    db.commit()
+    encolar(fid)
+    return {'ok': True, 'ya_en_cola': False}
 
 
 class Correccion(BaseModel):

@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import threading
 import httpx
 import rubros
 from verificar import a_centimos, normalizar_fecha
@@ -13,6 +14,7 @@ MODELO = os.environ.get('OLLAMA_MODELO', 'qwen2.5:3b')
 HILOS = int(os.environ.get('OLLAMA_HILOS', '4'))
 
 _ocr = None
+_candado = threading.Lock()      # RapidOCR no es seguro entre hilos: la cola de facturas y el lector de tarjetas lo comparten
 
 
 def ocr(ruta):
@@ -21,7 +23,8 @@ def ocr(ruta):
     if _ocr is None:
         from rapidocr_onnxruntime import RapidOCR
         _ocr = RapidOCR()
-    res, _ = _ocr(ruta)
+    with _candado:
+        res, _ = _ocr(ruta)
     if not res:
         return '', 0.0
     items = []
@@ -118,7 +121,7 @@ def ollama(texto, comercios_conocidos=None):
     except (httpx.HTTPError, KeyError, ValueError):
         return None
     campos = {
-        'comercio': (j.get('comercio') or '').strip()[:60],
+        'comercio': '' if str(j.get('comercio') or '').strip().lower() in ('null', 'none', 'n/a', 'ninguno', 'desconocido') else (j.get('comercio') or '').strip()[:60],
         'fecha': normalizar_fecha(j.get('fecha')),
         'ncf': j.get('ncf'),
         'moneda': j.get('moneda') or 'DOP',

@@ -26,6 +26,7 @@
 
   const DEFAULT_PAYS = [
     { id: 'efectivo', icon: '\u{1F4B5}', std: true },
+    { id: 'bolsillo', icon: '\u{1F45B}', std: true, kind: 'pocket' },    // «Bolsillo efectivo»: el efectivo que llevas contigo
     { id: 'tarjeta',  icon: '\u{1F4B3}', std: true },
     { id: 'transfer', icon: '\u{1F3E6}', std: true }
   ];
@@ -50,6 +51,47 @@
       expenses: [], debts: [], imports: [], budgetLines: {}
     };
     if (!saved || typeof saved !== 'object') return base;
+    const st = loadSaved(saved, base);
+    migrate(st);
+    return st;
+  }
+
+  /* Ajustes automáticos y repetibles de los datos (cualquier dispositivo llega al mismo resultado):
+     - existe la forma de pago «Bolsillo efectivo», con el control que antes se colgaba de «Efectivo»;
+     - cada tarjeta de Deudas tiene su propia forma de pago (id fijo card_<id de la deuda>) y queda enlazada. */
+  function migrate(st) {
+    const bolsillo = DEFAULT_PAYS.find((p) => p.id === 'bolsillo');
+    let pocket = st.pays.find((p) => p.id === 'bolsillo');
+    if (!pocket) {
+      pocket = Object.assign({}, bolsillo);
+      const at = st.pays.findIndex((p) => p.id === 'efectivo');
+      st.pays.splice(at >= 0 ? at + 1 : 0, 0, pocket);          // justo después de «Efectivo»
+    }
+    pocket.kind = 'pocket';
+    const cash = st.pays.find((p) => p.id === 'efectivo');
+    if (cash) {
+      for (const k of ['opening', 'openingDate', 'openingTs', 'counts']) {
+        if (cash[k] !== undefined) { if (pocket[k] === undefined) pocket[k] = cash[k]; delete cash[k]; }
+      }
+    }
+    for (const e of st.expenses) {                                 // retiros/depósitos hechos antes con «Efectivo»
+      if (e.kind === 'transfer') {
+        if (e.pay === 'efectivo') e.pay = 'bolsillo';
+        if (e.to === 'efectivo') e.to = 'bolsillo';
+      }
+    }
+    for (const d of st.debts) {
+      if (!d || d.kind !== 'card' || d.pay) continue;
+      const id = 'card_' + d.id;
+      if (!st.pays.some((p) => p.id === id)) {
+        const last4 = (String(d.name || '').match(/(\d{4})\s*$/) || [])[1];
+        st.pays.push({ id: id, icon: '\u{1F4B3}', name: d.name, kind: 'card', number: last4 || undefined, bank: String(d.name || '').split(/\s+/)[0] || undefined });
+      }
+      d.pay = id;
+    }
+  }
+
+  function loadSaved(saved, base) {
 
     // Las categorías estándar que se añaden en versiones nuevas (p. ej. Banco)
     // tienen que aparecer también en los datos ya guardados.
@@ -67,7 +109,7 @@
       currency: typeof saved.currency === 'string' ? saved.currency : base.currency,
       budget: Number.isFinite(saved.budget) ? saved.budget : 0,
       cats: cats,
-      pays: Array.isArray(saved.pays) && saved.pays.length ? saved.pays : base.pays,
+      pays: Array.isArray(saved.pays) && saved.pays.length ? saved.pays : base.pays.map((p) => Object.assign({}, p)),
       expenses: Array.isArray(saved.expenses) ? saved.expenses.filter(validExpense) : []
     };
   }
@@ -84,6 +126,7 @@
   }
 
   function save() {
+    migrate(state);               // idempotente: tarjetas de Deudas → formas de pago, Bolsillo efectivo…
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch (err) {
@@ -704,7 +747,7 @@
     const pays = $('#payPicker');
     pays.textContent = '';
     // Un ingreso entra a una cuenta (o en efectivo): no a una tarjeta. Una transferencia va entre cuentas.
-    const accts = state.pays.filter((p) => p.kind === 'account' || p.id === 'efectivo');
+    const accts = state.pays.filter((p) => p.kind === 'account' || p.kind === 'pocket' || p.id === 'efectivo');
     const accountsOnly = (draft.kind === 'income' || draft.kind === 'transfer') && accts.some((p) => p.kind === 'account');
     const choices = accountsOnly ? accts : state.pays;
     if (accountsOnly && !choices.some((p) => p.id === draft.pay)) draft.pay = choices[0].id;
@@ -1206,6 +1249,10 @@
       save();
       return pay.id;
     },
+    openExpense: (id) => {
+      const e = state.expenses.find((x) => x.id === id);
+      if (e) openSheet(e); else toast(t('bnd.noExpense'));
+    },
     hasExpense: (id) => state.expenses.some((e) => e.id === id),
     addExpense: (e) => {
       state.expenses.push(e);
@@ -1221,11 +1268,19 @@
     t: t,
     fmt: fmt,
     toast: toast,
+    payName: (p) => label(p, 'pay'),
     parseAmount: (text) => Math.round(parseNumber(text) * 100),
     amountText: (cents) => amountText(cents),
     pays: () => state.pays,
     expenses: () => state.expenses,
     debts: () => state.debts,
+    readCard: async (file) => {              // la foto se lee en el servidor y se descarta: vuelve solo banco, marca y 4 dígitos
+      const blob = await shrink(file, 1600, 0.85);
+      const fd = new FormData();
+      fd.append('archivo', blob, 'tarjeta.jpg');
+      const r = await window.SYNC.api('/tarjeta', { method: 'POST', body: fd });
+      return r.ok ? r.json() : null;
+    },
     addPay: (pay) => { state.pays.push(Object.assign({ id: 'acct_' + uid() }, pay)); save(); },
     save: save,
     renderAll: renderAll
@@ -1516,9 +1571,7 @@
       try { localStorage.setItem(KEY, JSON.stringify(datos)); } catch (_) { return; }
       reloadFromStorage();
     },
-    onConflict: (server) => {
-      window.SYNC.resolve(server, confirm(t('sync.conflict')));
-    },
+    merged: (hadLocalChanges) => { if (hadLocalChanges) toast(t('sync.merged')); },     // se combinó con el servidor, sin perder nada
     synced: (ok) => {
       const el = $('#syncNote');
       if (el) el.textContent = t(ok ? 'sync.ok' : 'sync.pending');
@@ -1526,6 +1579,7 @@
     photoLocalGet: photoLocalGet
   });
   syncReady = true;
+  window.SYNC.changed();        // por si load() ajustó algo (migración): que llegue al servidor
 
   // Pide almacenamiento persistente: reduce el riesgo de que iOS purgue los datos.
   if (navigator.storage && navigator.storage.persist) {

@@ -195,6 +195,7 @@
       </form>
 
       <div id="acctBox"></div>
+      <div id="cardBox"></div>
       <div id="covBox"></div>
 
       <h2 class="section-title" data-i18n="set.pays"></h2>
@@ -208,6 +209,7 @@
 
       <h2 class="section-title" data-i18n="set.data"></h2>
       <div class="group">
+        <button class="row action" id="docsOpen"><span data-i18n="docs.open"></span><span class="chev" id="docsCount">&rsaquo;</span></button>
         <button class="row action" id="importPdf"><span data-i18n="imp.button"></span><span class="chev">PDF · CSV</span></button>
         <button class="row action" id="reconcilePdf"><span data-i18n="rec.button"></span><span class="chev">PDF</span></button>
         <button class="row action" id="exportJson"><span data-i18n="set.export.json"></span><span class="chev">JSON</span></button>
@@ -443,6 +445,7 @@
     <img id="bndPhoto" class="bnd-photo" hidden data-i18n-alt="photo.alt">
     <p class="note" id="bndInfo"></p>
     <ul class="bnd-problems" id="bndProblems" hidden></ul>
+    <div id="bndFormBox">
     <div class="form">
       <label class="field"><span data-i18n="bnd.f.shop"></span><input type="text" id="bndComercio" maxlength="60"></label>
       <label class="field"><span data-i18n="bnd.f.date"></span><input type="date" id="bndFecha"></label>
@@ -458,9 +461,16 @@
       <label class="field"><span data-i18n="bnd.f.pay"></span><select id="bndPay"></select></label>
     </div>
     <p class="note" id="bndCardNote" data-i18n="bnd.cardnote" hidden></p>
-    <div class="group">
+    </div>
+    <div class="group" id="bndLoadedBox" hidden>
+      <button class="row action" id="bndViewExpense" type="button"><span data-i18n="bnd.viewExpense"></span><span class="chev">&rsaquo;</span></button>
+    </div>
+    <div class="group" id="bndActions">
       <button class="row action" id="bndApply" type="button"><span data-i18n="bnd.apply"></span><span class="chev">&rsaquo;</span></button>
       <button class="row action danger" id="bndDiscard" type="button"><span data-i18n="bnd.discard"></span><span class="chev">&rsaquo;</span></button>
+    </div>
+    <div class="group">
+      <button class="row action" id="bndReprocess" type="button"><span data-i18n="bnd.reprocess"></span><span class="chev">&#8635;</span></button>
     </div>
   </div>
   <div class="sheet-pad"></div>

@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v33`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v36`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -78,6 +78,9 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 - **Cloudflare impone 4 h de caché de navegador** a los `.js`/`.css`/`.png` si el origen no manda
   `Cache-Control: no-store` (con `no-cache` lo pisa). La API manda `no-store`; no lo cambies.
 - **Pagar otra tarjeta con esta es deuda, no gasto de vida**: las líneas tipo «COBRANZAS TARJ» llegan con rubro `cuotas` y desmarcadas; se apuntan desde Deudas para no contarlas dos veces.
+- **La sincronización COMBINA, no pregunta** (`sync.js`, `merge3`): si este dispositivo y el servidor cambiaron cosas distintas, se combinan entidad por entidad con la última versión sincronizada como base (solo cambió aquí → aquí; solo en el servidor → servidor; en los dos → gana lo local; borrado sin tocar → se borra). Nunca un diálogo de «¿cuál conservas?»: obligaba a perder datos. Pruebas: `node pruebas/sync-merge.js`.
+- **Bolsillo efectivo** es una forma de pago propia (`id:'bolsillo'`, `kind:'pocket'`); el «Efectivo» a secas es otra cosa y no cuenta en el control. **Cada tarjeta es su propia forma de pago** (`kind:'card'`, id `card_<id de la deuda>` si viene de Deudas). `migrate()` en app.js crea/enlaza todo de forma idempotente (se llama al cargar y al guardar).
+- **La foto de una tarjeta nunca se guarda**: `POST /api/tarjeta` la lee en un archivo temporal que se borra y devuelve SOLO banco, marca, tipo y los 4 últimos dígitos. Nunca guardes ni devuelvas el número completo, la fecha ni el CVV.
 - **Un `<input type=file>`: copia la lista (`Array.from(input.files)`) ANTES de vaciar el campo**: en Chrome de escritorio la `FileList` se vacía con él (en iOS no, y por eso no se vio).
 - **Propina adicional (`tip`)**: lo que se deja ENCIMA de la factura. El gasto guarda `cents` = factura + propina (lo que de verdad salió) y `tip` aparte, para poder editarla. Al servidor se le confirma solo el total de la factura.
 - **Tres tipos de movimiento** (`kind`): gasto (sin kind), `income`, y `transfer` (con `to`: la cuenta destino). Una transferencia
@@ -111,7 +114,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | `sync.js` | Datos en el servidor (`/api/estado`, versión optimista, conflictos) y fotos; copia local para trabajar sin conexión |
 | `rubros.js` | Las 59 líneas del presupuesto en 10 secciones (sin importes). El servidor la lee: es la única fuente |
 | `presupuesto.js` | Pestaña Presupuesto: presupuestado contra real por rubro; Deudas sale de la pestaña Deudas |
-| `cuentas.js` | Cuentas bancarias (forma de pago con `kind:'account'`, número `000000` hasta saber el real), saldo calculado y tabla «Hasta qué día hay datos» |
+| `cuentas.js` | Tarjetas (cada una su forma de pago; alta con foto o a mano, la foto no se guarda) y cuentas bancarias (forma de pago con `kind:'account'`, número `000000` hasta saber el real), saldo calculado y tabla «Hasta qué día hay datos» |
 | `bolsillo.js` | Pestaña Bolsillo: el efectivo que llevas encima. Arranca en 0; retiros/depósitos con una cuenta; «Contar lo que llevo» compara con lo esperado y guarda faltantes/sobrantes (`pay.counts`) |
 | `bandeja.js` | Facturas con IA: foto → servidor → bandeja de revisión → gasto con id fijo y rubro. El botón de subir (cámara) también acepta estados PDF/CSV y los manda a `statement.js` |
 | `servidor/` | API de facturas (FastAPI + OCR + Ollama + verificador). Corre en la máquina de casa; datos fuera del repo (`~/finanzas`). Ver `docs/PLAN-FOTOS-IA.md` |

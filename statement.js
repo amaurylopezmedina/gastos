@@ -373,7 +373,9 @@ window.STATEMENT = (() => {
     }
     const proposed = card ? t('imp.cardName', { n: card }) : null;
     if (proposed) {
-      const existing = host.pays().find((p) => host.payName(p) === proposed);
+      // La misma tarjeta puede existir con otro nombre («BHD Visa Platinum ···0399»): se busca por sus 4 últimos dígitos.
+      const existing = host.pays().find((p) => host.payName(p) === proposed)
+        || host.pays().find((p) => p.kind === 'card' && host.payName(p).indexOf('\u00b7\u00b7\u00b7' + card) >= 0);
       if (existing) {
         sel.value = existing.id;
         return;

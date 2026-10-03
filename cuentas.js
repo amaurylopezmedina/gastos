@@ -67,7 +67,7 @@ window.CUENTAS = (() => {
     for (const p of pays) {
       const s = statsOf(p, expenses);
       if (p.kind !== 'account' && p.kind !== 'card' && !s.n) continue;
-      if (p.id === 'efectivo' || p.id === 'transfer' || p.id === 'tarjeta') continue;
+      if (p.id === 'efectivo' || p.id === 'transfer' || p.id === 'tarjeta' || p.kind === 'pocket') continue;
       used.add(p.id);
       rows.push({ id: p.id, name: p.name, kind: p.kind || 'card', last: s.last, n: s.n, balance: p.kind === 'account' ? s.balance : null });
     }
@@ -76,6 +76,52 @@ window.CUENTAS = (() => {
       rows.push({ id: 'debt:' + d.id, name: d.name, kind: 'card', last: null, n: 0, balance: null });
     }
     return rows;
+  }
+
+  /* ---------------- Tarjetas: cada una es su propia forma de pago ---------------- */
+
+  const cards = () => host.pays().filter((p) => p.kind === 'card');
+  const BRANDS = ['Visa', 'Mastercard', 'American Express', 'Discover'];
+  const BANKS = ['BHD', 'Scotiabank', 'Popular', 'Banreservas', 'Promerica', 'Santa Cruz', 'Caribe', 'Vimenca', 'Lafise', 'APAP', 'Banesco', 'Alaver'];
+
+  function cardName(bank, brand, last4) {
+    return [bank, brand, '···' + last4].filter(Boolean).join(' ');
+  }
+
+  function saveCard() {
+    const last4 = ($('#cardLast4').value.match(/\d/g) || []).join('').slice(-4);
+    if (last4.length !== 4) return host.toast(host.t('card.need4'));
+    const bank = $('#cardBank').value.trim().slice(0, 20);
+    const brand = $('#cardBrand').value;
+    const dup = cards().find((p) => String(p.number || '').slice(-4) === last4 || host.payName(p).indexOf('···' + last4) >= 0);
+    if (dup) return host.toast(host.t('card.exists', { name: host.payName(dup) }));
+    const pay = { id: 'card_' + Date.now().toString(36), icon: '\u{1F4B3}', name: cardName(bank, brand, last4), kind: 'card', bank: bank || undefined, brand: brand || undefined, number: last4 };
+    host.addPay(pay);
+    for (const d of host.debts()) {                      // si ya hay una deuda de esa tarjeta, queda enlazada
+      if (d.kind === 'card' && !d.pay && String(d.name || '').indexOf('···' + last4) >= 0) d.pay = pay.id;
+    }
+    host.save();
+    host.renderAll();
+    host.toast(host.t('card.added'));
+  }
+
+  async function readCardPhoto(file) {
+    if (!file) return;
+    host.toast(host.t('card.reading'));
+    let info = null;
+    try { info = await host.readCard(file); } catch (_) { info = null; }
+    openCardForm(info || {});
+    if (!info || !info.ultimos4) host.toast(host.t('card.nothing'));
+    else host.toast(host.t('card.review'));
+  }
+
+  function openCardForm(info) {
+    const form = $('#cardForm');
+    form.hidden = false;
+    $('#cardBank').value = info.banco || '';
+    $('#cardBrand').value = BRANDS.indexOf(info.marca) >= 0 ? info.marca : '';
+    $('#cardLast4').value = info.ultimos4 || '';
+    $('#cardLast4').focus();
   }
 
   /* ---------------- Dibujo ---------------- */
@@ -153,6 +199,43 @@ window.CUENTAS = (() => {
     form.addEventListener('submit', (ev) => { ev.preventDefault(); addAccount(); });
     box.appendChild(form);
     box.appendChild(el('p', 'note', host.t('acct.hint')));
+
+    { // ---- Tarjetas (bloque propio: no pisa las variables del formulario de cuentas)
+    const tbox = $('#cardBox');
+    tbox.textContent = '';
+    tbox.appendChild(el('h2', 'section-title', host.t('card.title')));
+    const tlist = el('div', 'group');
+    const mine = cards();
+    if (!mine.length) tlist.appendChild(el('p', 'note', host.t('card.empty')));
+    for (const p of mine) {
+      const row = el('div', 'row cov-row');
+      row.appendChild(el('span', null, '\u{1F4B3} ' + host.payName(p)));
+      tlist.appendChild(row);
+    }
+    tbox.appendChild(tlist);
+    const acts = el('div', 'pocket-actions');
+    const photo = el('button', 'pocket-btn primary', '\u{1F4F7} ' + host.t('card.photo')); photo.type = 'button';
+    photo.addEventListener('click', () => $('#cardPhoto').click());
+    const manual = el('button', 'pocket-btn', '✍️ ' + host.t('card.manual')); manual.type = 'button';
+    manual.addEventListener('click', () => openCardForm({}));
+    acts.append(photo, manual);
+    tbox.appendChild(acts);
+    const form = el('form', 'group acct-form'); form.id = 'cardForm'; form.hidden = true;
+    const bank = el('input'); bank.id = 'cardBank'; bank.maxLength = 20; bank.placeholder = host.t('card.bank'); bank.setAttribute('list', 'cardBanks');
+    const dl = el('datalist'); dl.id = 'cardBanks'; for (const b of BANKS) { const o = el('option'); o.value = b; dl.appendChild(o); }
+    const brand = el('select'); brand.id = 'cardBrand';
+    const none = el('option', null, host.t('card.brand')); none.value = ''; brand.appendChild(none);
+    for (const b of BRANDS) { const o = el('option', null, b); o.value = b; brand.appendChild(o); }
+    const last4 = el('input'); last4.id = 'cardLast4'; last4.inputMode = 'numeric'; last4.maxLength = 4; last4.placeholder = host.t('card.last4');
+    const save = el('button', null, host.t('card.save')); save.type = 'submit';
+    form.append(bank, dl, brand, last4, save);
+    form.addEventListener('submit', (ev) => { ev.preventDefault(); saveCard(); });
+    tbox.appendChild(form);
+    const file = el('input'); file.type = 'file'; file.id = 'cardPhoto'; file.accept = 'image/*'; file.hidden = true;
+    file.addEventListener('change', () => { const f = file.files[0]; file.value = ''; readCardPhoto(f); });
+    tbox.appendChild(file);
+    tbox.appendChild(el('p', 'note', host.t('card.privacy')));
+    }
 
     /* ---- Cobertura ---- */
     const cov = $('#covBox');
