@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v25`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v26`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -84,7 +84,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 - **El árbol de trabajo ES producción** (la API sirve estos archivos tal cual, al instante). Al añadir un archivo nuevo, el orden
   es: 1) añadirlo a `WEB_ARCHIVOS` y `systemctl --user restart gastos-api`; 2) solo entonces `index.html` y `sw.js`. Si no, Cloudflare
   guarda el 404 hasta 4 h (`max-age=14400`) y los teléfonos no actualizan. Sin permiso de purga, el remedio es cambiar la URL
-  (`archivo.js?v=N`, como `bolsillo.js?v=25`). Ahora la API manda `no-store` también en los errores.
+  (`archivo.js?v=N`, como `bolsillo.js?v=26`). Ahora la API manda `no-store` también en los errores.
 - **Todo archivo nuevo de la app hay que añadirlo a `WEB_ARCHIVOS` en `servidor/app.py`** y al `SHELL` del
   service worker; una prueba comprueba que todo lo que cita `index.html` se sirva.
 - **Todo texto de interfaz va por `i18n.js`** (es/en, plurales `.one`/`.other`). Las categorías y
@@ -110,7 +110,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | `rubros.js` | Las 59 líneas del presupuesto en 10 secciones (sin importes). El servidor la lee: es la única fuente |
 | `presupuesto.js` | Pestaña Presupuesto: presupuestado contra real por rubro; Deudas sale de la pestaña Deudas |
 | `cuentas.js` | Cuentas bancarias (forma de pago con `kind:'account'`, número `000000` hasta saber el real), saldo calculado y tabla «Hasta qué día hay datos» |
-| `bolsillo.js` | Pestaña Bolsillo: el efectivo que llevas (la forma de pago `efectivo` con saldo y fecha), meter/devolver dinero con una cuenta, gasto en efectivo |
+| `bolsillo.js` | Pestaña Bolsillo: el efectivo que llevas encima. Arranca en 0; retiros/depósitos con una cuenta; «Contar lo que llevo» compara con lo esperado y guarda faltantes/sobrantes (`pay.counts`) |
 | `bandeja.js` | Facturas con IA: foto → servidor → bandeja de revisión → gasto con id fijo y rubro |
 | `servidor/` | API de facturas (FastAPI + OCR + Ollama + verificador). Corre en la máquina de casa; datos fuera del repo (`~/finanzas`). Ver `docs/PLAN-FOTOS-IA.md` |
 | `loans.js` | Deudas: cuota, amortización, consolidado, calendario mensual, avisos, `.ics` |

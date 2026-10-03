@@ -670,6 +670,7 @@ button.rec-row:active { background: var(--surface-2); }
 .pocket-date { color: var(--text-dim); font-size: 12px; }
 .pocket-amt { font-variant-numeric: tabular-nums; }
 .pocket-amt.plus { color: var(--good); }
+.pocket-bad { color: var(--danger); }
 /* ---------- Cuentas y cobertura ---------- */
 .acct-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
 .acct-form input { padding: 10px; border-radius: 10px; background: var(--bg); color: var(--text); border: 0; font-size: 16px; min-width: 0; }
