@@ -1099,6 +1099,16 @@
       save();
       return pay.id;
     },
+    suggestRubros: async (descs) => {
+      try {
+        const r = await window.SYNC.api('/clasificar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comercios: descs }) });
+        return r.ok ? (await r.json()).rubros : [];
+      } catch (_) { return []; }
+    },
+    learn: (items) => {
+      if (!items.length) return;
+      window.SYNC.api('/aprender', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items) }).catch(() => {});
+    },
     addImported: (list) => addImportedRows(list)
   });
 
@@ -1160,7 +1170,7 @@
       state.expenses.push({
         id: uid(), cents: row.cents, cat: row.cat, pay: row.pay,
         date: row.date, note: row.note, photo: null,
-        sig: row.sig, src: 'pdf', batch: batches.get(file), ts: now
+        sig: row.sig, src: row.src || 'pdf', rubro: row.rubro, batch: batches.get(file), ts: now
       });
     }
     for (const [file, batch] of batches) {
@@ -1322,14 +1332,14 @@
 
   $('#importPdf').addEventListener('click', () => $('#pdfFile').click());
   $('#pdfFile').addEventListener('change', (ev) => {
-    const files = ev.target.files;
+    const files = Array.from(ev.target.files);   // copia: en Chrome la lista original se vacía al limpiar el campo
     ev.target.value = '';
     if (files && files.length) window.STATEMENT.open(files);
   });
 
   $('#reconcilePdf').addEventListener('click', () => $('#recFile').click());
   $('#recFile').addEventListener('change', (ev) => {
-    const files = ev.target.files;
+    const files = Array.from(ev.target.files);   // copia: en Chrome la lista original se vacía al limpiar el campo
     ev.target.value = '';
     if (files && files.length) window.RECONCILE.open(files);
   });

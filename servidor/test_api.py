@@ -160,3 +160,19 @@ def test_no_se_aplica_una_factura_sin_confirmar(c, monkeypatch):
     fid, f = _leer(c, monkeypatch, 'Otro Negocio Mas', rubro_ia=None, color='black')
     assert f['estado'] == 'revisar'
     assert c.post(f'/api/facturas/{fid}/estado', json={'estado': 'aplicada'}).status_code == 409
+
+
+def test_clasificar_lineas_de_un_extracto(c):
+    r = c.post('/api/clasificar', json={'comercios': ['JUMBO MOCA', 'SHELL EST DE COMB DEL VIA', 'SCOTIABANK COBRANZAS TARJ', 'AGRORI']})
+    assert r.json() == {'rubros': ['super', 'combustible', 'cuotas', None]}
+
+
+def test_lo_que_el_usuario_corrige_se_aprende_y_manda(c):
+    assert c.post('/api/aprender', json=[{'comercio': 'AGRORI', 'rubro': 'mascotas'}, {'comercio': 'X', 'rubro': 'sueldo'}]).json() == {'aprendidos': 1}
+    assert c.post('/api/clasificar', json={'comercios': ['AGRORI', 'agrori']}).json() == {'rubros': ['mascotas', 'mascotas']}
+    c.post('/api/aprender', json=[{'comercio': 'JUMBO MOCA', 'rubro': 'colmado'}])
+    assert c.post('/api/clasificar', json={'comercios': ['JUMBO MOCA']}).json() == {'rubros': ['colmado']}
+
+
+def test_clasificar_limita_el_tamano(c):
+    assert c.post('/api/clasificar', json={'comercios': ['x'] * 1001}).status_code == 413

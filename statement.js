@@ -153,6 +153,49 @@ window.STATEMENT = (() => {
     return { rows: rows, card: card };
   }
 
+  /* ---------------- Lector de CSV ---------------- */
+
+  /* Estados de tarjeta en CSV: «Fecha Transacción, Fecha Posteo, No. Referencia, Concepto, Monto» y, arriba,
+     «No. Tarjeta:4174********1441». Un monto negativo es un abono (pago a la tarjeta). */
+  function csvCells(line) {
+    const out = [];
+    let cur = '';
+    let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (quoted && line[i + 1] === '"') { cur += '"'; i++; } else quoted = !quoted;
+      } else if (ch === ',' && !quoted) { out.push(cur); cur = ''; } else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  }
+
+  async function readCsv(file) {
+    const buf = await file.arrayBuffer();
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (_) { text = new TextDecoder('windows-1252').decode(buf); }   // los bancos suelen exportar en Latin-1
+
+    const rows = [];
+    let card = null;
+    for (const line of text.split(/\r?\n/)) {
+      const head = line.match(/Tarjeta\s*:?\s*[\d*xX\u00b7\u2022\s]*?(\d{4})\s*$/i);
+      if (head) { if (!card) card = head[1]; continue; }
+      const cells = csvCells(line);
+      if (cells.length < 5) continue;
+      const d = cells[0].trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (!d) continue;
+      const cents = parseAmount(cells[4]);
+      const desc = cells[3].replace(/\s+/g, ' ').trim();
+      if (!Number.isFinite(cents) || cents === 0 || !desc) continue;
+      rows.push({ date: isoDate(d), desc: desc, cents: Math.abs(cents), currency: host.currency(), credit: cents < 0 });
+    }
+    return { rows: rows, card: card };
+  }
+
+  const isCsv = (file) => /\.csv$/i.test(file.name || '') || /csv/i.test(file.type || '');
+
   /* ---------------- Categoría sugerida ---------------- */
 
   const RULES = [
@@ -200,7 +243,7 @@ window.STATEMENT = (() => {
 
       let result;
       try {
-        result = await readPdf(file);
+        result = isCsv(file) ? await readCsv(file) : await readPdf(file);
       } catch (_) {
         failed++;
         continue;
@@ -225,6 +268,7 @@ window.STATEMENT = (() => {
           cents: row.cents,
           currency: row.currency || host.currency(),
           credit: Boolean(row.credit),
+          src: isCsv(file) ? 'csv' : 'pdf',
           sig: sig,
           repeated: known.has(sig)     // ya venía en un archivo anterior
         });
@@ -266,6 +310,17 @@ window.STATEMENT = (() => {
     if (!parsed.length) {
       return host.toast(t(result.failed ? 'imp.failed' : 'imp.nothing'));
     }
+    // Rubro del presupuesto: lo aprendido y las palabras clave del servidor. Sin conexión no pasa nada: queda «sin rubro».
+    const suggested = await host.suggestRubros(parsed.map((r) => r.desc));
+    parsed.forEach((r, i) => {
+      const rid = suggested[i];
+      if (!rid || !window.RUBROS.get(rid)) return;
+      r.rubro = rid;
+      const cat = window.RUBROS.catOf(rid);
+      if (cat && host.hasCat(cat)) r.cat = cat;
+      // Pagar otra tarjeta con esta es deuda, no gasto de vida: viene desmarcado y se apunta desde Deudas.
+      if (rid === window.RUBROS.DEBT) { r.on = false; r.cardpay = true; }
+    });
     if (result.failed) host.toast(tn('imp.someFailed', result.failed));
 
     prepareCard(cardSeen);
@@ -349,6 +404,7 @@ window.STATEMENT = (() => {
     if (row.currency !== host.currency()) tags.push(row.currency);
     if (row.credit) tags.push(t('imp.tag.payment'));
     if (row.dup) tags.push(t('imp.tag.dup'));
+    if (row.cardpay) tags.push(t('imp.tag.cardpay'));
     el.querySelector('.imp-meta').textContent = tags.join('  ·  ');
 
     const check = el.querySelector('.imp-check');
@@ -363,19 +419,37 @@ window.STATEMENT = (() => {
     // crearlas todas de golpe hace lenta la pantalla en el teléfono.
     const sel = el.querySelector('.imp-cat');
     const fill = () => {
-      if (sel.options.length) return;
-      for (const c of host.cats()) {
-        const o = document.createElement('option');
-        o.value = c.id;
-        o.textContent = host.catName(c);
-        sel.appendChild(o);
+      if (sel.dataset.filled) return;          // (una marca: la opción de adorno ya cuenta como «opciones»)
+      sel.dataset.filled = '1';
+      sel.textContent = '';
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = t('rubro.none');
+      sel.appendChild(none);
+      for (const g of window.RUBROS.groups) {
+        if (g.income) continue;                    // los ingresos no vienen en un estado de tarjeta
+        const og = document.createElement('optgroup');
+        og.label = g.icon + ' ' + window.RUBROS.groupName(g.id);
+        for (const r of window.RUBROS.ofGroup(g.id)) {
+          const o = document.createElement('option');
+          o.value = r.id;
+          o.textContent = window.RUBROS.name(r.id);
+          og.appendChild(o);
+        }
+        sel.appendChild(og);
       }
-      sel.value = row.cat;
+      sel.value = row.rubro || '';
     };
     sel.addEventListener('focus', fill);
     sel.addEventListener('mousedown', fill);
     sel.addEventListener('touchstart', fill, { passive: true });
-    sel.onchange = () => { row.cat = sel.value; };
+    sel.onchange = () => {
+      row.rubro = sel.value || null;
+      const cat = row.rubro && window.RUBROS.catOf(row.rubro);
+      row.cat = cat && host.hasCat(cat) ? cat : suggestCat(row.desc);
+      row.learn = Boolean(row.rubro);              // lo corregido a mano se recuerda para el próximo mes
+      row.cardpay = row.rubro === window.RUBROS.DEBT;
+    };
 
     paintRow(el, row);
     return el;
@@ -394,8 +468,13 @@ window.STATEMENT = (() => {
       : host.fmt(cents);
 
     const sel = el.querySelector('.imp-cat');
-    if (sel.options.length) sel.value = row.cat;
-    else sel.innerHTML = '<option>' + host.catName(host.catById(row.cat)) + '</option>';
+    if (sel.dataset.filled) sel.value = row.rubro || '';
+    else {
+      sel.textContent = '';
+      const o = document.createElement('option');
+      o.textContent = row.rubro ? window.RUBROS.name(row.rubro) : t('rubro.none');
+      sel.appendChild(o);
+    }
   }
 
   function repaintAll() {
@@ -446,9 +525,10 @@ window.STATEMENT = (() => {
     if (pay === '__new__') pay = host.addPay(sel.dataset.newName, '\u{1F4B3}');
 
     host.addImported(picked.map((r) => ({
-      cents: convert(r), cat: r.cat, pay: pay, date: r.date,
-      note: r.desc, sig: r.sig, file: r.file
+      cents: convert(r), cat: r.cat, rubro: r.rubro || undefined, pay: pay, date: r.date,
+      note: r.desc, sig: r.sig, file: r.file, src: r.src
     })));
+    host.learn(picked.filter((r) => r.learn && r.rubro).map((r) => ({ comercio: r.desc, rubro: r.rubro })));
     close();
   }
 

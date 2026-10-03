@@ -338,6 +338,46 @@ def foto_borrar(pid: str):
     return {'ok': True}
 
 
+# ---------------------------------------------------------------- clasificar lineas de un estado de cuenta
+
+class Lote(BaseModel):
+    comercios: list[str]
+
+
+@api.post('/clasificar')
+def clasificar(lote: Lote):
+    """Rubro propuesto para cada descripcion: lo aprendido > palabras clave > None. Sin modelo (rapido)."""
+    if len(lote.comercios) > 1000:
+        raise HTTPException(413, 'demasiadas lineas')
+    db = con()
+    salida = []
+    for c in lote.comercios:
+        c = c[:120]
+        regla = db.execute('SELECT rubro FROM reglas_rubro WHERE comercio=?', (norm(c),)).fetchone()
+        salida.append(regla['rubro'] if regla and regla['rubro'] in rubros.IDS_GASTO else reglas_rubro.para_extracto(c))
+    return {'rubros': salida}
+
+
+class Aprender(BaseModel):
+    comercio: str
+    rubro: str
+
+
+@api.post('/aprender')
+def aprender(items: list[Aprender]):
+    """El usuario corrigio el rubro de estos comercios: se recuerda para la proxima vez."""
+    if len(items) > 1000:
+        raise HTTPException(413)
+    db = con()
+    n = 0
+    for it in items:
+        if it.rubro in rubros.IDS_GASTO and norm(it.comercio):
+            db.execute('INSERT OR REPLACE INTO reglas_rubro(comercio, rubro) VALUES(?,?)', (norm(it.comercio[:120]), it.rubro))
+            n += 1
+    db.commit()
+    return {'aprendidos': n}
+
+
 app.include_router(api)
 
 # ---------------------------------------------------------------- la propia app (archivos publicos)

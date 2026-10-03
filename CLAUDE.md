@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v18`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v19`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -76,6 +76,8 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
   llamada corta al modelo > el usuario.
 - **Cloudflare impone 4 h de caché de navegador** a los `.js`/`.css`/`.png` si el origen no manda
   `Cache-Control: no-store` (con `no-cache` lo pisa). La API manda `no-store`; no lo cambies.
+- **Pagar otra tarjeta con esta es deuda, no gasto de vida**: las líneas tipo «COBRANZAS TARJ» llegan con rubro `cuotas` y desmarcadas; se apuntan desde Deudas para no contarlas dos veces.
+- **Un `<input type=file>`: copia la lista (`Array.from(input.files)`) ANTES de vaciar el campo**: en Chrome de escritorio la `FileList` se vacía con él (en iOS no, y por eso no se vio).
 - **Todo archivo nuevo de la app hay que añadirlo a `WEB_ARCHIVOS` en `servidor/app.py`** y al `SHELL` del
   service worker; una prueba comprueba que todo lo que cita `index.html` se sirva.
 - **Todo texto de interfaz va por `i18n.js`** (es/en, plurales `.one`/`.other`). Las categorías y
@@ -95,7 +97,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | --- | --- |
 | `index.html`, `styles.css` | Vistas: Gastos, Resumen (arranque), Deudas, Ajustes + hojas modales |
 | `app.js` | Estado, render, cámara, import/export, puentes con los demás módulos |
-| `statement.js` | Lector de estados de cuenta en PDF y pantalla de revisión (varios archivos) |
+| `statement.js` | Lector de estados de cuenta en PDF **y CSV** y pantalla de revisión (varios archivos); propone rubro por el servidor y aprende lo que corriges |
 | `reconcile.js` | Conciliar un estado con lo ya apuntado (no importa nada) |
 | `sync.js` | Datos en el servidor (`/api/estado`, versión optimista, conflictos) y fotos; copia local para trabajar sin conexión |
 | `rubros.js` | Las 59 líneas del presupuesto en 10 secciones (sin importes). El servidor la lee: es la única fuente |

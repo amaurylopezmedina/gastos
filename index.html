@@ -197,7 +197,7 @@
 
       <h2 class="section-title" data-i18n="set.data"></h2>
       <div class="group">
-        <button class="row action" id="importPdf"><span data-i18n="imp.button"></span><span class="chev">PDF</span></button>
+        <button class="row action" id="importPdf"><span data-i18n="imp.button"></span><span class="chev">PDF · CSV</span></button>
         <button class="row action" id="reconcilePdf"><span data-i18n="rec.button"></span><span class="chev">PDF</span></button>
         <button class="row action" id="exportJson"><span data-i18n="set.export.json"></span><span class="chev">JSON</span></button>
         <button class="row action" id="exportCsv"><span data-i18n="set.export.csv"></span><span class="chev">CSV</span></button>
@@ -205,8 +205,8 @@
         <button class="row action danger" id="wipeBtn"><span data-i18n="set.wipe"></span><span class="chev">&rsaquo;</span></button>
       </div>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
-      <input type="file" id="pdfFile" accept="application/pdf,.pdf" multiple hidden>
-      <input type="file" id="recFile" accept="application/pdf,.pdf" multiple hidden>
+      <input type="file" id="pdfFile" accept="application/pdf,.pdf,text/csv,.csv" multiple hidden>
+      <input type="file" id="recFile" accept="application/pdf,.pdf,text/csv,.csv" multiple hidden>
 
       <h2 class="section-title" id="importsTitle" data-i18n="set.imports" hidden></h2>
       <div class="group" id="importList" hidden></div>

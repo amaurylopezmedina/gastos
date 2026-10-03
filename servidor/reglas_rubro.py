@@ -5,7 +5,7 @@ import re
 import unicodedata
 
 REGLAS = [
-    ('combustible', r'texaco|shell|sunix|\bisla\b|total ?energies|gasolinera|estaci[o]n de servicio|combustible|gasoil|\bglp\b|\bgnv\b'),
+    ('combustible', r'texaco|\bshell\b|\besso\b|sunix|\bisla\b|total ?energies|gasolinera|estaci[o]n de servicio|combustible|gasoil|\bglp\b|\bgnv\b'),
     ('suscripciones', r'netflix|spotify|apple\.com|itunes|icloud|google ?(one|play|\*)|youtube|amazon ?prime|prime video|microsoft|disney|hbo|canva|openai|chatgpt|anthropic|claude|cloudflare|github|dropbox|zoom'),
     ('luz', r'edenorte|edesur|edeeste|\beden\b|distribuidora de electricidad'),
     ('internet', r'\bclaro\b|altice|\bwind\b|\bviva\b|internet|cable ?(tv|net)?|telefon'),
@@ -24,12 +24,12 @@ REGLAS = [
     ('marbete', r'marbete|inspecci[o]n t[e]cnica|\bintrant\b|\bdgii\b.*veh'),
     ('multas', r'\bmulta\b|\bamet\b|digesett'),
     ('super', r'jumbo|la sirena|\bsirena\b|supermerc|\bpola\b|plaza lama|coopcibao|carrefour'),
-    ('comerfuera', r'burger ?king|mcdonald|\bkfc\b|pizz|domino|pollo|restaurant|caf[e]\b|cafeter|wendy|subway|helader|pica ?pollo|pedidosya|uber ?eats|\bbar\b|parrilla|sushi|tacos'),
+    ('comerfuera', r'burger ?king|mcdonald|\bkfc\b|pizz|domino|pollo|restaurant|caf[e]\b|cafeter|food park|garden food|coffe[ey]|wendy|subway|helader|pica ?pollo|pedidosya|uber ?eats|\bbar\b|parrilla|sushi|tacos'),
     ('colmado', r'colmado|minimarket|mini ?market|\bbodega\b'),
-    ('reparaciones', r'ikea|ferreter|bellon|ochoa|home ?center|pinturas|plomer|electricista|el[e]ctric[ao]s? |construc'),
+    ('reparaciones', r'ikea|decopla|decorac|ferreter|bellon|ochoa|home ?center|pinturas|plomer|electricista|el[e]ctric[ao]s? |construc'),
     ('ropa', r'\bzara\b|\bnike\b|adidas|boutique|calzado|zapat|\bropa\b|tienda de ropa|carolina herrera|\bh ?& ?m\b|american eagle'),
     ('cuidado', r'barber[i]a|peluquer|sal[o]n de belleza|spa\b|uñas|nails|cosm[e]tic'),
-    ('ocio', r'cine|cinemas|teatro|casino|discoteca|\bclub\b|bowling|parque|concierto|boleter[i]a|tickets'),
+    ('ocio', r'gimnasio|\bgym\b|training|fitness|crossfit|cine|cinemas|teatro|casino|discoteca|\bclub\b|bowling|parque|concierto|boleter[i]a|tickets'),
     ('mascotas', r'veterinar|mascota|pet ?shop|petco'),
     ('tecnologia', r'\bpc ?gamer|computadora|celular|iphone|samsung|tecnolog|electr[o]nic|\bcompuoffice|\bcecomsa'),
     ('iglesia', r'iglesia|diezmo|ofrenda|donaci'),
@@ -39,8 +39,19 @@ REGLAS = [
 _COMPILADAS = [(rubro, re.compile(p, re.I)) for rubro, p in REGLAS]
 
 
+# Pagar OTRA tarjeta o prestamo con esta tarjeta: es deuda, no gasto de vida (rubro de Deudas).
+PAGO_DE_DEUDA = re.compile(r'cobranzas? ?tarj|pago (de )?tarjeta|pago tarj|pago prestamo|pago de prestamo', re.I)
+
+
 def quitar_acentos(s):
     return unicodedata.normalize('NFKD', s or '').encode('ascii', 'ignore').decode('ascii')
+
+
+def para_extracto(descripcion):
+    """Rubro de una linea de estado de cuenta: pago de deuda o palabras clave; None si no se sabe."""
+    if PAGO_DE_DEUDA.search(quitar_acentos(descripcion)):
+        return 'cuotas'
+    return por_palabras(descripcion)
 
 
 def por_palabras(comercio, descripciones=(), texto=''):
