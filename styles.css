@@ -679,3 +679,13 @@ button.rec-row:active { background: var(--surface-2); }
 .acct-asof { color: var(--text-dim); font-size: 12px; }
 .cov-row { cursor: default; }
 .cov-none { color: var(--danger); }
+
+/* ---------- Propina adicional ---------- */
+.tip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+.tip-row[hidden], .tip-total[hidden] { display: none !important; }
+.tip-field { display: flex; align-items: center; gap: 8px; flex: 1 1 150px; padding: 8px 12px; background: var(--surface); border-radius: 12px; font-size: 14px; color: var(--text-dim); }
+.tip-field input { flex: 1; min-width: 0; text-align: right; background: transparent; border: 0; color: var(--text); font-size: 16px; outline: none; }
+.tip-chips { display: flex; gap: 6px; }
+.tip-chip { padding: 8px 12px; border-radius: 10px; background: var(--surface); color: var(--accent); font-weight: 600; font-size: 14px; }
+.tip-total { flex: 1 0 100%; text-align: right; color: var(--text-dim); font-size: 13px; padding-right: 4px; }
+.bnd-tip-chips { padding: 0 2px 8px; }

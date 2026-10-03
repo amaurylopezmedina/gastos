@@ -151,6 +151,7 @@ window.BANDEJA = (() => {
     $('#bndComercio').value = c.comercio || '';
     $('#bndFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : '';
     $('#bndTotal').value = Number.isFinite(c.total) ? host.amountText(c.total) : '';
+    $('#bndTip').value = '';
     fillRubros($('#bndRubro'), c.rubro);
     fillPays($('#bndPay'), c.tarjeta);
 
@@ -191,7 +192,8 @@ window.BANDEJA = (() => {
     if (!it) return;
     const comercio = $('#bndComercio').value.trim();
     const fecha = $('#bndFecha').value;
-    const cents = host.parseAmount($('#bndTotal').value);
+    const cents = host.parseAmount($('#bndTotal').value);          // total de la factura (sin la propina adicional)
+    const tip = Math.max(0, host.parseAmount($('#bndTip').value) || 0);
     const rubro = $('#bndRubro').value;
     let pay = $('#bndPay').value;
     if (!comercio || !fecha || !(cents > 0)) return host.toast(t('bnd.invalid'));
@@ -213,7 +215,7 @@ window.BANDEJA = (() => {
       if (!host.hasExpense(id)) {
         if (pay === '__new__') pay = host.addCard($('#bndPay').dataset.newName);   // la tarjeta del comprobante, aún sin crear
         host.addExpense({
-          id, cents, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
+          id, cents: cents + tip, tip: tip || undefined, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
           note: comercio.slice(0, 60), photo: 'ph_' + id, src: 'foto', ts: Date.now()
         });
       }
@@ -267,6 +269,10 @@ window.BANDEJA = (() => {
     $('#bndApply').addEventListener('click', apply);
     $('#bndDiscard').addEventListener('click', discard);
     $('#bndPay').addEventListener('change', cardNote);
+    document.querySelectorAll('.bnd-tip-chips .tip-chip').forEach((b) => b.addEventListener('click', () => {
+      const base = host.parseAmount($('#bndTotal').value);
+      if (base > 0) $('#bndTip').value = host.amountText(Math.round(base * Number(b.dataset.pct) / 100));
+    }));
     refresh();
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   }

@@ -262,6 +262,16 @@
     <span class="amount-val" id="amountVal">0</span>
   </div>
 
+  <div class="tip-row" id="tipRow">
+    <label class="tip-field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="tipInput" placeholder="0"></label>
+    <div class="tip-chips">
+      <button type="button" class="tip-chip" data-pct="10">10%</button>
+      <button type="button" class="tip-chip" data-pct="15">15%</button>
+      <button type="button" class="tip-chip" data-pct="20">20%</button>
+    </div>
+    <div class="tip-total" id="tipTotal" hidden></div>
+  </div>
+
   <div class="kind-toggle">
     <button type="button" id="kindExpense" class="on" data-i18n="kind.expense"></button>
     <button type="button" id="kindIncome" data-i18n="kind.income"></button>
@@ -430,6 +440,12 @@
       <label class="field"><span data-i18n="bnd.f.shop"></span><input type="text" id="bndComercio" maxlength="60"></label>
       <label class="field"><span data-i18n="bnd.f.date"></span><input type="date" id="bndFecha"></label>
       <label class="field"><span data-i18n="bnd.f.total"></span><input type="text" inputmode="decimal" id="bndTotal"></label>
+      <label class="field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="bndTip" placeholder="0"></label>
+      <div class="tip-chips bnd-tip-chips">
+        <button type="button" class="tip-chip" data-pct="10">10%</button>
+        <button type="button" class="tip-chip" data-pct="15">15%</button>
+        <button type="button" class="tip-chip" data-pct="20">20%</button>
+      </div>
       <label class="field"><span data-i18n="bnd.f.rubro"></span><select id="bndRubro"></select></label>
       <label class="field"><span data-i18n="bnd.f.pay"></span><select id="bndPay"></select></label>
     </div>

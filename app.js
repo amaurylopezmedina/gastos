@@ -359,6 +359,7 @@
         // Subtítulo: nota + forma de pago + clip si hay foto adjunta.
         const bits = [];
         if (e.note) bits.push(e.note);
+        if (e.tip) bits.push(t('tip.short', { n: fmt(e.tip) }));
         if (pay && !isTransfer(e)) bits.push(pay.icon + ' ' + label(pay, 'pay'));
         if (e.photo) bits.push('\u{1F4CE}');
         const note = row.querySelector('.item-note');
@@ -603,7 +604,8 @@
     draft = expense
       ? {
           id: expense.id,
-          raw: (expense.cents / 100).toFixed(2),
+          raw: ((expense.cents - (Number.isFinite(expense.tip) ? expense.tip : 0)) / 100).toFixed(2),
+          tip: Number.isFinite(expense.tip) ? expense.tip : 0,
           cat: expense.cat,
           kind: expense.kind === 'income' ? 'income' : expense.kind === 'transfer' ? 'transfer' : 'expense',
           to: expense.to || null,
@@ -616,7 +618,7 @@
           dropPhoto: false
         }
       : {
-          id: null, raw: '', cat: state.cats[0].id, kind: 'expense', to: null, rubro: null, pay: state.pays[0].id,
+          id: null, raw: '', tip: 0, cat: state.cats[0].id, kind: 'expense', to: null, rubro: null, pay: state.pays[0].id,
           date: ymd(new Date()), note: '', photo: null,
           newPhoto: pendingPhoto || null, dropPhoto: false
         };
@@ -627,6 +629,7 @@
     $('#amountCur').textContent = currencySymbol();
     $('#dateInput').value = draft.date;
     $('#noteInput').value = draft.note;
+    $('#tipInput').value = draft.tip ? amountText(draft.tip) : '';
 
     renderPickers();
     paintAmount();
@@ -659,6 +662,7 @@
   function renderKindRubro() {
     const income = draft.kind === 'income';
     const transfer = draft.kind === 'transfer';
+    paintTip();
     $('#kindExpense').classList.toggle('on', !income && !transfer);
     $('#kindIncome').classList.toggle('on', income);
     $('#kindTransfer').classList.toggle('on', transfer);
@@ -737,6 +741,22 @@
       shown = dec === undefined ? intShown : intShown + decimalSep + dec;
     }
     $('#amountVal').textContent = shown;
+    paintTip();
+  }
+
+  /* Propina adicional: lo que se deja ENCIMA de la factura. El gasto guarda el total pagado (factura + propina) y
+     la propina aparte, para poder editarla; así saldos, cuentas y presupuesto cuadran con lo que de verdad salió. */
+  const draftBase = () => Math.round(parseFloat(draft.raw || '0') * 100) || 0;
+  const draftTip = () => Math.max(0, Math.round(parseNumber($('#tipInput').value) * 100) || 0);
+
+  function paintTip() {
+    const row = $('#tipRow');
+    if (!row) return;
+    row.hidden = draft.kind === 'income' || draft.kind === 'transfer';       // la propina es de un gasto
+    const tip = draftTip();
+    const total = $('#tipTotal');
+    total.hidden = !tip;
+    total.textContent = tip ? t('tip.total', { n: fmt(draftBase() + tip) }) : '';
   }
 
   function paintPhoto() {
@@ -785,8 +805,10 @@
   }
 
   async function saveDraft() {
-    const cents = Math.round(parseFloat(draft.raw || '0') * 100);
-    if (!Number.isFinite(cents) || cents <= 0) return toast(t('msg.needAmount'));
+    const base = Math.round(parseFloat(draft.raw || '0') * 100);
+    if (!Number.isFinite(base) || base <= 0) return toast(t('msg.needAmount'));
+    const tip = draft.kind === 'expense' ? draftTip() : 0;
+    const cents = base + tip;
 
     const date = $('#dateInput').value || ymd(new Date());
     const note = $('#noteInput').value.trim();
@@ -814,7 +836,8 @@
     const extra = {
       kind: income ? 'income' : transfer ? 'transfer' : undefined,
       to: transfer ? draft.to : undefined,
-      rubro: transfer ? undefined : (draft.rubro || undefined)
+      rubro: transfer ? undefined : (draft.rubro || undefined),
+      tip: tip || undefined
     };
     if (isEdit) {
       const e = state.expenses.find((x) => x.id === draft.id);
@@ -1342,6 +1365,13 @@
     for (const f of photos) await window.BANDEJA.send(f);
     if (docs.length) window.STATEMENT.open(docs);
   });
+  $('#tipInput').addEventListener('input', paintTip);
+  $$('#tipRow .tip-chip').forEach((b) => b.addEventListener('click', () => {
+    const base = draftBase();
+    if (!base) return toast(t('msg.needAmount'));
+    $('#tipInput').value = amountText(Math.round(base * Number(b.dataset.pct) / 100));
+    paintTip();
+  }));
   $('#kindExpense').addEventListener('click', () => { draft.kind = 'expense'; draft.rubro = null; renderPickers(); });
   // Ingresos y transferencias parten de una cuenta bancaria si hay (no de «Efectivo», que es la primera forma de pago).
   const firstAccount = () => state.pays.find((p) => p.kind === 'account');
