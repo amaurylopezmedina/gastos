@@ -95,6 +95,14 @@
     </div>
   </section>
 
+  <!-- ============ VISTA: BOLSILLO ============ -->
+  <section class="view" id="view-pocket" data-view="pocket" hidden>
+    <header class="topbar"><div class="monthlabel"><span data-i18n="tab.pocket"></span><small data-i18n="pocket.sub"></small></div></header>
+    <div class="scroll">
+      <div id="pocketBody"></div>
+    </div>
+  </section>
+
   <!-- ============ VISTA: DEUDAS ============ -->
   <section class="view" id="view-debts" data-view="debts" hidden>
     <header class="topbar"><div class="monthlabel"><span data-i18n="tab.debts"></span></div></header>
@@ -234,6 +242,7 @@
     <button class="tab" data-go="list"><span class="tab-ico">&#129534;</span><span data-i18n="tab.list"></span></button>
     <button class="tab is-active" data-go="stats"><span class="tab-ico">&#128202;</span><span data-i18n="tab.stats"></span></button>
     <button class="tab" data-go="budget"><span class="tab-ico">&#127919;</span><span data-i18n="tab.budget"></span></button>
+    <button class="tab" data-go="pocket"><span class="tab-ico">&#128181;</span><span data-i18n="tab.pocket"></span></button>
     <button class="tab" data-go="debts"><span class="tab-ico">&#127974;</span><span data-i18n="tab.debts"></span></button>
     <button class="tab" data-go="settings"><span class="tab-ico">&#9881;&#65039;</span><span data-i18n="tab.settings"></span></button>
   </nav>
@@ -449,6 +458,7 @@
 <script src="bandeja.js"></script>
 <script src="presupuesto.js"></script>
 <script src="cuentas.js"></script>
+<script src="bolsillo.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

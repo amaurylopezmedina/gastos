@@ -1,6 +1,6 @@
 /* Service worker: app shell en caché para que funcione sin conexión.
    Sube CACHE al publicar cambios y los clientes se actualizarán solos. */
-const CACHE = 'gastos-v22';
+const CACHE = 'gastos-v24';
 
 const SHELL = [
   './',
@@ -15,6 +15,7 @@ const SHELL = [
   './bandeja.js',
   './presupuesto.js',
   './cuentas.js',
+  './bolsillo.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-192.png',

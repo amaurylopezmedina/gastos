@@ -656,6 +656,20 @@ button.rec-row:active { background: var(--surface-2); }
 #view-budget .group { margin: 0 16px; border-radius: 0 0 14px 14px; }
 
 .item-amount.transfer { color: var(--text-dim); }
+.tab { min-width: 0; overflow: hidden; }
+.tab span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pocket-card { margin: 14px 16px 6px; padding: 18px; background: var(--surface); border-radius: 18px; text-align: center; }
+.pocket-label { color: var(--text-dim); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+.pocket-amount { font-size: 40px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.pocket-amount.neg { color: var(--danger); }
+.pocket-sub { color: var(--text-dim); font-size: 13px; }
+.pocket-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 16px; }
+.pocket-btn { padding: 12px 8px; border-radius: 12px; background: var(--surface); color: var(--text); font-weight: 600; font-size: 14px; }
+.pocket-btn.primary { background: var(--accent); color: #fff; }
+.pocket-warn { color: var(--danger); }
+.pocket-date { color: var(--text-dim); font-size: 12px; }
+.pocket-amt { font-variant-numeric: tabular-nums; }
+.pocket-amt.plus { color: var(--good); }
 /* ---------- Cuentas y cobertura ---------- */
 .acct-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
 .acct-form input { padding: 10px; border-radius: 10px; background: var(--bg); color: var(--text); border: 0; font-size: 16px; min-width: 0; }

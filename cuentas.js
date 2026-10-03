@@ -48,12 +48,13 @@ window.CUENTAS = (() => {
     let n = 0;
     let delta = 0;
     const since = pay.openingDate || null;
+    const sinceTs = pay.openingTs || 0;      // conteo de efectivo «ahora mismo»: lo apuntado ese mismo día DESPUÉS sí cuenta
     for (const e of expenses) {
       const incoming = e.kind === 'transfer' && e.to === pay.id;     // llega dinero desde otra cuenta
       if (e.pay !== pay.id && !incoming) continue;
       n++;
       if (!last || e.date > last) last = e.date;
-      if (since && e.date <= since) continue;                         // ya está dentro del saldo conocido
+      if (since && (e.date < since || (e.date === since && !(sinceTs && (e.ts || 0) > sinceTs)))) continue;   // ya está dentro del saldo conocido
       delta += incoming || e.kind === 'income' ? e.cents : -e.cents;  // sale: gasto o transferencia enviada
     }
     return { last, n, balance: (Number.isFinite(pay.opening) ? pay.opening : 0) + delta };
@@ -97,6 +98,9 @@ window.CUENTAS = (() => {
     pay.number = cleanNumber(number);
     pay.opening = cents;
     pay.openingDate = iso;
+    // Un saldo fijado con la fecha de HOY es «ahora mismo»: lo que apuntes hoy después sí lo cambia.
+    // Con una fecha pasada es el saldo al cierre de ese día.
+    if (iso === todayIso()) pay.openingTs = Date.now(); else delete pay.openingTs;
     pay.name = nameOf(pay.bank, pay.number);
     host.save();
     host.renderAll();
@@ -108,7 +112,7 @@ window.CUENTAS = (() => {
     const number = cleanNumber($('#acctNumber').value);
     const cents = $('#acctOpening').value.trim() ? host.parseAmount($('#acctOpening').value) : 0;
     if (!Number.isFinite(cents)) return host.toast(host.t('bud.invalid'));
-    host.addPay({ icon: '\u{1F3E6}', name: nameOf(bank, number), kind: 'account', bank: bank, number: number, opening: cents, openingDate: todayIso() });
+    host.addPay({ icon: '\u{1F3E6}', name: nameOf(bank, number), kind: 'account', bank: bank, number: number, opening: cents, openingDate: todayIso(), openingTs: Date.now() });
     $('#acctBank').value = '';
     $('#acctNumber').value = '';
     $('#acctOpening').value = '';

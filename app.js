@@ -587,6 +587,7 @@
     if (window.LOANS) window.LOANS.render();
     if (window.PRESUPUESTO) window.PRESUPUESTO.render();
     if (window.CUENTAS) window.CUENTAS.render();
+    if (window.BOLSILLO) window.BOLSILLO.render();
   }
 
   /* ---------------- Hoja: añadir / editar ---------------- */
@@ -598,7 +599,7 @@
     }
   }
 
-  function openSheet(expense, pendingPhoto) {
+  function openSheet(expense, pendingPhoto, preset) {
     draft = expense
       ? {
           id: expense.id,
@@ -620,6 +621,7 @@
           newPhoto: pendingPhoto || null, dropPhoto: false
         };
 
+    if (!expense && preset) Object.assign(draft, preset);   // p. ej. una transferencia ya preparada desde el bolsillo
     $('#sheetTitle').textContent = t(expense ? 'sheet.edit' : 'sheet.new');
     $('#deleteBtn').hidden = !expense;
     $('#amountCur').textContent = currencySymbol();
@@ -1187,6 +1189,30 @@
     renderAll: renderAll
   });
 
+  /* ---------------- Bolsillo (efectivo) ---------------- */
+
+  window.BOLSILLO.init({
+    t: t,
+    tn: tn,
+    fmt: fmt,
+    toast: toast,
+    parseAmount: (text) => Math.round(parseNumber(text) * 100),
+    amountText: (cents) => amountText(cents),
+    pays: () => state.pays,
+    expenses: () => state.expenses,
+    payName: (id) => payLabel(id),
+    catName: (id) => catName(id),
+    monthKey: () => monthKey(new Date()),
+    monthLabel: () => cap(monthFmt.format(new Date())),
+    openExpense: (id) => {
+      const e = state.expenses.find((x) => x.id === id);
+      if (e) openSheet(e);
+    },
+    newEntry: (preset) => openSheet(null, null, preset),
+    save: save,
+    renderAll: renderAll
+  });
+
   /* ---------------- Presupuesto por rubros ---------------- */
 
   window.PRESUPUESTO.init({
@@ -1254,11 +1280,12 @@
     $$('.tab[data-go]').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.go === name));
     // Apuntar un gasto se hace desde la lista y desde el resumen; en deudas y
     // ajustes los botones flotantes taparían los suyos.
-    const canAdd = name === 'list' || name === 'stats';
+    const canAdd = name === 'list' || name === 'stats';   // en Presupuesto, Bolsillo, Deudas y Ajustes los botones flotantes taparían los suyos
     $('#openAdd').hidden = !canAdd;
     $('#openCam').hidden = !canAdd;
     if (name === 'debts') window.LOANS.render();
     if (name === 'budget') window.PRESUPUESTO.render();
+    if (name === 'pocket') window.BOLSILLO.render();
   }
 
   function shiftMonth(n) {
