@@ -745,3 +745,15 @@ html, body, button, input, select, textarea, label, a { touch-action: manipulati
 #evSheet { z-index: 11; }
 #evBody { padding-bottom: 12px; }
 #evBody > .pocket-btn { display: block; width: 100%; margin: 6px 0 10px; }
+
+/* ---------- Por cobrar ---------- */
+.cb-chip { display: block; width: calc(100% - 32px); margin: 8px 16px 0; padding: 10px 14px; border-radius: 14px; background: var(--surface); color: var(--text-dim); text-align: left; font-weight: 500; }
+.cb-chip.on { color: #e0a030; font-weight: 650; }
+#cbBackdrop { z-index: 10; }
+#cbSheet { z-index: 11; }
+#cbBody { padding-bottom: 12px; }
+#cbBody > .pocket-btn { display: block; width: 100%; margin: 6px 0 10px; }
+.recv-line { margin-top: 6px; font-size: 13px; color: #e0a030; }
+.cb-panel { padding: 12px; margin: 8px 0; }
+.cb-panel .pocket-btn { display: block; width: 100%; margin-top: 8px; }
+.cb-check { min-width: 48px; font-size: 24px; }

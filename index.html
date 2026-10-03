@@ -35,6 +35,7 @@
       <div class="hero">
         <div class="hero-label" data-i18n="hero.total"></div>
         <div class="hero-amount" id="monthTotal">0</div>
+        <div class="recv-line" id="recvLine" hidden></div>
         <div class="budget" id="budgetWrap" hidden>
           <div class="budget-bar"><div class="budget-fill" id="budgetFill"></div></div>
           <div class="budget-text" id="budgetText"></div>
@@ -43,6 +44,7 @@
 
       <button class="bnd-banner" hidden></button>
       <button class="ev-chip"></button>
+      <button class="cb-chip"></button>
       <div id="listBody"></div>
 
       <div class="empty" id="listEmpty" hidden>
@@ -64,6 +66,7 @@
     <div class="scroll">
       <button class="bnd-banner" hidden></button>
       <button class="ev-chip"></button>
+      <button class="cb-chip"></button>
       <div class="cards">
         <div class="card"><span class="card-label" data-i18n="stats.month"></span><span class="card-value" id="stTotal">0</span></div>
         <div class="card"><span class="card-label" data-i18n="stats.avg"></span><span class="card-value" id="stAvg">0</span></div>
@@ -281,6 +284,10 @@
     <div class="picker-label" id="eventLabel" data-i18n="sheet.event"></div>
     <select class="rubro-select" id="eventSelect"></select>
 
+    <div class="picker-label" id="partyLabel" data-i18n="sheet.recv"></div>
+    <select class="rubro-select" id="partySelect"></select>
+    <p class="note" id="partyHint" data-i18n="recv.sheetHint" hidden></p>
+
     <div class="tip-row" id="tipRow">
       <label class="tip-field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="tipInput" placeholder="0"></label>
       <div class="tip-chips">
@@ -438,6 +445,18 @@
 </div>
 
 <!-- ============ HOJA: BANDEJA DE FACTURAS ============ -->
+<!-- ============ HOJA: POR COBRAR ============ -->
+<div class="sheet-backdrop" id="cbBackdrop" hidden></div>
+<div class="sheet" id="cbSheet" hidden role="dialog" aria-modal="true">
+  <div class="sheet-head">
+    <button class="sheet-btn" id="cbClose" data-i18n="ev.close"></button>
+    <strong id="cbTitle"></strong>
+    <button class="sheet-btn" id="cbBack" hidden data-i18n="recv.back"></button>
+  </div>
+  <div id="cbBody"></div>
+  <div class="sheet-pad"></div>
+</div>
+
 <!-- ============ HOJA: EVENTOS ============ -->
 <div class="sheet-backdrop" id="evBackdrop" hidden></div>
 <div class="sheet" id="evSheet" hidden role="dialog" aria-modal="true">
@@ -477,6 +496,7 @@
       <label class="field"><span data-i18n="bnd.f.rubro"></span><select id="bndRubro"></select></label>
       <label class="field"><span data-i18n="bnd.f.pay"></span><select id="bndPay"></select></label>
       <label class="field"><span data-i18n="sheet.event"></span><select id="bndEvent"></select></label>
+      <label class="field"><span data-i18n="sheet.recv"></span><select id="bndRecv"></select></label>
     </div>
     <p class="note" id="bndCardNote" data-i18n="bnd.cardnote" hidden></p>
     </div>
@@ -514,6 +534,7 @@
 <script src="cuentas.js"></script>
 <script src="bolsillo.js?v=26"></script>
 <script src="eventos.js"></script>
+<script src="cobrar.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

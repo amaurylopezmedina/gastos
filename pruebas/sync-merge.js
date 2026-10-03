@@ -38,6 +38,13 @@ const ids = (m) => m.expenses.map((x) => x.id).sort().join(',');
   const m = merge3(base, l, s); t('caso real: lo mío', m.pays[0].openingDate === '2026-10-03'); t('caso real: lo del servidor', m.pays[1].opening === 2163507 && ids(m) === 'a,b,nuevo' && m.debts.length === 1, m); }
 // 11. idempotencia: combinar dos veces da lo mismo
 { const l = clon(base); l.expenses.push(E('x')); const s = clon(base); s.expenses.push(E('y')); const m1 = merge3(base, l, s); const m2 = merge3(s, m1, s); t('idempotente', eq(Object.keys(m1).sort(), Object.keys(m2).sort()) && ids(m2) === 'a,b,x,y'); }
+// 13. empresas/personas por cobrar y gastos marcados: se combinan; un cobro hecho en un lado y una edicion en el otro no se pisan
+{ const b3 = Object.assign(clon(base), { parties: [{ id: 'p1', name: 'Empresa' }] }); b3.expenses[0].recv = 'p1';
+  const l = clon(b3); l.expenses[0].recvPaid = '2026-10-05'; l.expenses.push({ id: 'rf1', kind: 'refund', cents: 100, date: '2026-10-05', pay: 'acct' });
+  const s4 = clon(b3); s4.expenses[1].recv = 'p1'; s4.parties.push({ id: 'p2', name: 'Otro' });
+  const m = merge3(b3, l, s4); const x = (id) => m.expenses.find((e) => e.id === id);
+  t('por cobrar: el cobro local se conserva', x('a').recvPaid === '2026-10-05' && !!x('rf1'), m.expenses);
+  t('por cobrar: lo marcado en el servidor y la nueva empresa tambien', x('b').recv === 'p1' && m.parties.length === 2, m); }
 // 12. eventos: se combinan como el resto de las listas (cada lado crea uno distinto; el borrado de un lado sin tocar se aplica)
 { const b2 = Object.assign(clon(base), { events: [{ id: 'ev1', name: 'Viaje' }], activeEvent: 'ev1' }); b2.expenses[0].event = 'ev1';
   const l = clon(b2); l.events.push({ id: 'ev2', name: 'Fiesta' }); const s2 = clon(b2); s2.events.push({ id: 'ev3', name: 'Compra' });

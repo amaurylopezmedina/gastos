@@ -231,6 +231,20 @@ window.BANDEJA = (() => {
     sel.value = host.events().some((e) => e.id === host.activeEvent()) ? host.activeEvent() : '';
   }
 
+  // «Por cobrar a» (opcional): por defecto la del evento actual, si la tiene.
+  function fillParties(sel) {
+    sel.replaceChildren();
+    const none = el('option', null, t('recv.none'));
+    none.value = '';
+    sel.appendChild(none);
+    for (const p of host.parties()) {
+      const o = el('option', null, '\u{1F4BC} ' + p.name);
+      o.value = p.id;
+      sel.appendChild(o);
+    }
+    sel.value = host.activeParty() || '';
+  }
+
   function cardNote() {
     const p = host.pays().find((x) => x.id === $('#bndPay').value);
     $('#bndCardNote').hidden = !(($('#bndPay').value === '__new__') || (p && p.id !== 'efectivo' && p.id !== 'transfer' && p.kind !== 'account' && p.kind !== 'pocket'));
@@ -258,6 +272,7 @@ window.BANDEJA = (() => {
     fillRubros($('#bndRubro'), c.rubro);
     fillPays($('#bndPay'), c.tarjeta);
     fillEvents($('#bndEvent'));
+    fillParties($('#bndRecv'));
 
     const probs = $('#bndProblems');
     probs.replaceChildren();
@@ -319,7 +334,7 @@ window.BANDEJA = (() => {
       if (!host.hasExpense(id)) {
         if (pay === '__new__') pay = host.addCard($('#bndPay').dataset.newName);   // la tarjeta del comprobante, aún sin crear
         host.addExpense({
-          id, cents: cents + tip, tip: tip || undefined, event: $('#bndEvent').value || undefined, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
+          id, cents: cents + tip, tip: tip || undefined, event: $('#bndEvent').value || undefined, recv: $('#bndRecv').value || undefined, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
           note: [comercio, $('#bndDesc').value.trim()].filter(Boolean).join(' \u00b7 ').slice(0, 140), photo: 'ph_' + id, src: 'foto', ts: Date.now()
         });
       }
@@ -379,6 +394,10 @@ window.BANDEJA = (() => {
     $('#bndApply').addEventListener('click', apply);
     $('#bndDiscard').addEventListener('click', discard);
     $('#bndPay').addEventListener('change', cardNote);
+    $('#bndEvent').addEventListener('change', () => {
+      const ev = host.events().find((e) => e.id === $('#bndEvent').value);
+      if (ev && ev.recv && !$('#bndRecv').value) $('#bndRecv').value = ev.recv;
+    });
     document.querySelectorAll('.bnd-tip-chips .tip-chip').forEach((b) => b.addEventListener('click', () => {
       const base = host.parseAmount($('#bndTotal').value);
       if (base > 0) $('#bndTip').value = host.amountText(Math.round(base * Number(b.dataset.pct) / 100));

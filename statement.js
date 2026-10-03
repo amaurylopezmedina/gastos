@@ -341,7 +341,7 @@ window.STATEMENT = (() => {
     const sel = $('#impPay');
     const payId = sel.value && sel.value !== '__new__' ? sel.value : null;
     const free = payId
-      ? host.expenses().filter((e) => e.pay === payId && !e.sig && e.kind !== 'income' && e.kind !== 'transfer')
+      ? host.expenses().filter((e) => e.pay === payId && !e.sig && e.kind !== 'income' && e.kind !== 'transfer' && e.kind !== 'refund')
       : [];
     const taken = new Set();
     for (const r of parsed) {

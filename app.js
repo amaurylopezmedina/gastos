@@ -48,7 +48,7 @@
     const base = {
       v: 3, lang: null, currency: 'EUR', budget: 0,
       cats: DEFAULT_CATS.slice(), pays: DEFAULT_PAYS.slice(),
-      expenses: [], debts: [], imports: [], budgetLines: {}, events: [], activeEvent: null
+      expenses: [], debts: [], imports: [], budgetLines: {}, events: [], activeEvent: null, parties: []
     };
     if (!saved || typeof saved !== 'object') return base;
     const st = loadSaved(saved, base);
@@ -113,6 +113,7 @@
       budgetLines: saved.budgetLines && typeof saved.budgetLines === 'object' && !Array.isArray(saved.budgetLines) ? saved.budgetLines : {},
       events: Array.isArray(saved.events) ? saved.events.filter((e) => e && typeof e.id === 'string' && typeof e.name === 'string') : [],
       activeEvent: typeof saved.activeEvent === 'string' ? saved.activeEvent : null,
+      parties: Array.isArray(saved.parties) ? saved.parties.filter((p) => p && typeof p.id === 'string' && typeof p.name === 'string') : [],
       lang: typeof saved.lang === 'string' ? saved.lang : null,
       currency: typeof saved.currency === 'string' ? saved.currency : base.currency,
       budget: Number.isFinite(saved.budget) ? saved.budget : 0,
@@ -321,7 +322,11 @@
   }
   const isIncome = (e) => e.kind === 'income';
   const isTransfer = (e) => e.kind === 'transfer';   // mover dinero entre tus cuentas: ni gasto ni ingreso
-  const isSpend = (e) => !isIncome(e) && !isTransfer(e);
+  const isRefund = (e) => e.kind === 'refund';       // un cobro: devuelve dinero a una cuenta o al bolsillo; no es ingreso
+  const isCharge = (e) => !isIncome(e) && !isTransfer(e) && !isRefund(e);        // salida REAL de dinero (incluye lo por cobrar)
+  const isRecv = (e) => isCharge(e) && Boolean(e.recv);                          // gasto por cobrar a una empresa/persona
+  // Gasto PERSONAL: lo único que cuenta en el presupuesto y en los totales. Lo por cobrar se te va a devolver.
+  const isSpend = (e) => isCharge(e) && !isRecv(e);
   // «Gastos» no incluye los ingresos: así ningún total del mes los mezcla.
   const expensesOfMonth = (d) => entriesOfMonth(d).filter(isSpend);
   const sum = (list) => list.reduce((total, e) => total + e.cents, 0);
@@ -351,6 +356,10 @@
     $('#monthName2').textContent = monthLabel;
     $('#monthSub').textContent = all.length ? tn('list.count', all.length) : '';
     $('#monthTotal').textContent = fmt(total);
+    const recvMonth = all.filter(isRecv).reduce((s, e) => s + e.cents, 0);
+    const line = $('#recvLine');
+    line.hidden = !recvMonth;
+    line.textContent = recvMonth ? t('recv.monthLine', { n: fmt(recvMonth) }) : '';
 
     // Presupuesto
     const wrap = $('#budgetWrap');
@@ -402,8 +411,8 @@
           '<span class="item-ico"></span>' +
           '<span class="item-main"><span class="item-cat"></span><span class="item-note"></span></span>' +
           '<span class="item-amount"></span>';
-        row.querySelector('.item-ico').textContent = isTransfer(e) ? '\u{1F501}' : isIncome(e) ? '\u{1F4B0}' : (cat ? cat.icon : '\u{2753}');
-        row.querySelector('.item-cat').textContent = isTransfer(e)
+        row.querySelector('.item-ico').textContent = isRefund(e) ? '\u{1F4BC}' : isTransfer(e) ? '\u{1F501}' : isIncome(e) ? '\u{1F4B0}' : (cat ? cat.icon : '\u{2753}');
+        row.querySelector('.item-cat').textContent = isRefund(e) ? t('recv.refundTitle') : isTransfer(e)
           ? t('kind.transfer') + ': ' + payLabel(e.pay) + ' \u2192 ' + payLabel(e.to)
           : e.rubro && window.RUBROS.get(e.rubro) ? window.RUBROS.name(e.rubro) : catName(e.cat);
 
@@ -411,6 +420,7 @@
         const bits = [];
         if (e.note) bits.push(e.note);
         if (e.tip) bits.push(t('tip.short', { n: fmt(e.tip) }));
+        if (isRecv(e)) { const pty = state.parties.find((x) => x.id === e.recv); if (pty) bits.push('\u{1F4BC} ' + t(e.recvPaid ? 'recv.tagPaid' : 'recv.tagPending', { name: pty.name })); }
         if (e.event) { const evn = state.events.find((x) => x.id === e.event); if (evn) bits.push('\u{1F392} ' + evn.name); }
         if (pay && !isTransfer(e)) bits.push(pay.icon + ' ' + label(pay, 'pay'));
         if (e.photo) bits.push('\u{1F4CE}');
@@ -418,8 +428,9 @@
         if (bits.length) note.textContent = bits.join('  ·  '); else note.remove();
 
         const amount = row.querySelector('.item-amount');
-        amount.textContent = (isIncome(e) ? '+' : '') + fmt(e.cents);
-        if (isIncome(e)) amount.classList.add('income');
+        amount.textContent = (isIncome(e) || isRefund(e) ? '+' : '') + fmt(e.cents);
+        if (isIncome(e) || isRefund(e)) amount.classList.add('income');
+        if (isRecv(e)) amount.classList.add('transfer');       // por cobrar: en gris, no es gasto personal
         if (isTransfer(e)) amount.classList.add('transfer');
         group.appendChild(row);
       }
@@ -642,6 +653,7 @@
     if (window.CUENTAS) window.CUENTAS.render();
     if (window.BOLSILLO) window.BOLSILLO.render();
     if (window.EVENTOS) window.EVENTOS.render();
+    if (window.COBRAR) window.COBRAR.render();
   }
 
   /* ---------------- Hoja: añadir / editar ---------------- */
@@ -664,6 +676,7 @@
           to: expense.to || null,
           rubro: expense.rubro || null,
           event: expense.event || null,
+          recv: expense.recv || null,
           pay: expense.pay || state.pays[0].id,
           date: expense.date,
           note: expense.note || '',
@@ -672,7 +685,7 @@
           dropPhoto: false
         }
       : {
-          id: null, raw: '', tip: 0, cat: state.cats[0].id, kind: 'expense', to: null, rubro: null, event: state.activeEvent || null, pay: state.pays[0].id,
+          id: null, raw: '', tip: 0, cat: state.cats[0].id, kind: 'expense', to: null, rubro: null, event: state.activeEvent || null, recv: activePartyId(), pay: state.pays[0].id,
           date: ymd(new Date()), note: '', photo: null,
           newPhoto: pendingPhoto || null, dropPhoto: false
         };
@@ -713,6 +726,34 @@
     return el;
   }
 
+  // Si el evento actual tiene «por cobrar a», los gastos nuevos salen ya marcados con esa empresa/persona.
+  function activePartyId() {
+    const ev = state.events.find((e) => e.id === state.activeEvent);
+    return ev && ev.recv && state.parties.some((p) => p.id === ev.recv) ? ev.recv : null;
+  }
+
+  // Por cobrar a (opcional): el gasto es de una empresa/persona y te lo van a reembolsar. No cuenta en tu presupuesto.
+  function renderPartySelect() {
+    const sel = $('#partySelect');
+    sel.textContent = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = t('recv.none');
+    sel.appendChild(none);
+    for (const p of state.parties) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = '\u{1F4BC} ' + p.name;
+      sel.appendChild(o);
+    }
+    const add = document.createElement('option');
+    add.value = '__new__';
+    add.textContent = t('recv.newOption');
+    sel.appendChild(add);
+    sel.value = draft && draft.recv && state.parties.some((p) => p.id === draft.recv) ? draft.recv : '';
+    $('#partyHint').hidden = !sel.value || sel.hidden;
+  }
+
   // Evento (opcional): agrupa el gasto para verlo en un reporte aparte; el gasto sigue contando igual.
   function renderEventSelect() {
     const sel = $('#eventSelect');
@@ -747,7 +788,10 @@
     $('#rubroSelect').hidden = transfer;           // una transferencia no es presupuesto
     $('#eventSelect').hidden = income || transfer; // el evento agrupa GASTOS
     $('#eventLabel').hidden = income || transfer;
+    $('#partySelect').hidden = income || transfer;
+    $('#partyLabel').hidden = income || transfer;
     renderEventSelect();
+    renderPartySelect();
     $('#rubroLabel').hidden = transfer;
     $('#toLabel').hidden = !transfer;
     $('#toPicker').hidden = !transfer;
@@ -924,11 +968,15 @@
       to: transfer ? draft.to : undefined,
       rubro: transfer ? undefined : (draft.rubro || undefined),
       tip: tip || undefined,
-      event: draft.kind === 'expense' && draft.event && state.events.some((e) => e.id === draft.event) ? draft.event : undefined
+      event: draft.kind === 'expense' && draft.event && state.events.some((e) => e.id === draft.event) ? draft.event : undefined,
+      recv: draft.kind === 'expense' && draft.recv && state.parties.some((p) => p.id === draft.recv) ? draft.recv : undefined
     };
     if (isEdit) {
       const e = state.expenses.find((x) => x.id === draft.id);
-      if (e) Object.assign(e, { cents, cat, pay: draft.pay, date, note, photo: photoId }, extra);
+      if (e) {
+        Object.assign(e, { cents, cat, pay: draft.pay, date, note, photo: photoId }, extra);
+        if (!e.recv) { delete e.recvPaid; delete e.recvRefund; }       // ya no es por cobrar
+      }
     } else {
       state.expenses.push(Object.assign({
         id: uid(), cents, cat, pay: draft.pay, date, note, photo: photoId, ts: Date.now()
@@ -1044,7 +1092,7 @@
 
   function exportCsv() {
     const esc = (s) => '"' + String(s).replace(/"/g, '""') + '"';
-    const header = ['csv.date', 'csv.cat', 'csv.pay', 'csv.note', 'csv.photo', 'csv.amount', 'csv.event'].map(t).join(';');
+    const header = ['csv.date', 'csv.cat', 'csv.pay', 'csv.note', 'csv.photo', 'csv.amount', 'csv.event', 'csv.recv'].map(t).join(';');
     const lines = [header];
     const rows = state.expenses.slice().sort((a, b) => a.date.localeCompare(b.date));
     for (const e of rows) {
@@ -1056,7 +1104,8 @@
         esc(e.note || ''),
         e.photo ? t('csv.yes') : '',
         (e.cents / 100).toFixed(2).replace('.', decimalSep),
-        esc((state.events.find((x) => x.id === e.event) || {}).name || '')
+        esc((state.events.find((x) => x.id === e.event) || {}).name || ''),
+        esc((state.parties.find((x) => x.id === e.recv) || {}).name || '')
       ].join(';'));
     }
     download('gastos-' + stamp() + '.csv', '﻿' + lines.join('\r\n'), 'text/csv');
@@ -1109,6 +1158,7 @@
       merge(state.pays, data.pays);
       merge(state.imports, data.imports);
       merge(state.events, data.events);
+      merge(state.parties, data.parties);
       if (lines) {                       // presupuesto por rubros: lo que ya tienes puesto no se pisa
         for (const [id, cents] of Object.entries(lines)) {
           if (window.RUBROS.get(id) && Number.isFinite(cents) && cents >= 0 && state.budgetLines[id] === undefined) {
@@ -1150,7 +1200,7 @@
     fmt: fmt,
     toast: toast,
     currency: () => state.currency,
-    expenses: () => state.expenses.filter(isSpend),
+    expenses: () => state.expenses.filter(isCharge),
     pays: () => state.pays,
     payName: (p) => label(p, 'pay'),
     catName: (id) => catName(id),
@@ -1290,6 +1340,8 @@
     imports: () => state.imports,
     events: () => state.events,
     activeEvent: () => state.activeEvent,
+    parties: () => state.parties,
+    activeParty: () => activePartyId(),
     openExpense: (id) => {
       const e = state.expenses.find((x) => x.id === id);
       if (e) openSheet(e); else toast(t('bnd.noExpense'));
@@ -1300,6 +1352,71 @@
       save();
       cursor = startOfMonth(parseDate(e.date));
       renderAll();
+    }
+  });
+
+  /* ---------------- Por cobrar ---------------- */
+
+  window.COBRAR.init({
+    t: t,
+    tn: tn,
+    fmt: fmt,
+    toast: toast,
+    amountText: (cents) => amountText(cents),
+    download: (name, text, type) => download(name, text, type),
+    catName: (id) => catName(id),
+    payName: (id) => payLabel(id),
+    parties: () => state.parties,
+    events: () => state.events,
+    expenses: () => state.expenses,
+    pays: () => state.pays,
+    addParty: (name) => {
+      const p = { id: 'pt_' + uid(), name: name };
+      state.parties.push(p);
+      save();
+      renderAll();
+      return p;
+    },
+    renameParty: (id, name) => {
+      const p = state.parties.find((x) => x.id === id);
+      if (p) { p.name = name; save(); renderAll(); }
+    },
+    removeParty: (id) => {                       // deshace sus cobros y deja sus gastos como personales otra vez
+      const refunds = new Set(state.expenses.filter((e) => e.recv === id && e.recvRefund).map((e) => e.recvRefund));
+      state.expenses = state.expenses.filter((e) => !refunds.has(e.id));
+      for (const e of state.expenses) if (e.recv === id) { delete e.recv; delete e.recvPaid; delete e.recvRefund; }
+      for (const ev of state.events) if (ev.recv === id) delete ev.recv;
+      state.parties = state.parties.filter((p) => p.id !== id);
+      save();
+      renderAll();
+    },
+    collect: (ids, payId, date, partyName) => {
+      const list = state.expenses.filter((e) => ids.indexOf(e.id) >= 0 && e.recv && !e.recvPaid);
+      if (!list.length) return;
+      let refundId = null;
+      if (payId) {                                // el dinero vuelve a esa cuenta/bolsillo, sin contarse como ingreso
+        refundId = 'rf_' + uid();
+        state.expenses.push({
+          id: refundId, cents: list.reduce((s, e) => s + e.cents, 0), pay: payId, date: date, kind: 'refund', ts: Date.now(),
+          cat: state.cats.some((c) => c.id === 'otros') ? 'otros' : state.cats[0].id, note: t('recv.refundNote', { name: partyName })
+        });
+      }
+      for (const e of list) {
+        e.recvPaid = date;
+        if (refundId) e.recvRefund = refundId; else delete e.recvRefund;
+      }
+      save();
+      renderAll();
+    },
+    undoCollect: (refundId, ids) => {
+      if (refundId) state.expenses = state.expenses.filter((e) => e.id !== refundId);
+      for (const e of state.expenses) if (ids.indexOf(e.id) >= 0) { delete e.recvPaid; delete e.recvRefund; }
+      save();
+      renderAll();
+    },
+    openExpense: (id) => {
+      const e = state.expenses.find((x) => x.id === id);
+      if (e) openSheet(e);
     }
   });
 
@@ -1316,6 +1433,11 @@
     catName: (id) => catName(id),
     payName: (id) => payLabel(id),
     events: () => state.events,
+    parties: () => state.parties,
+    setEventParty: (id, partyId) => {
+      const ev = state.events.find((e) => e.id === id);
+      if (ev) { if (partyId) ev.recv = partyId; else delete ev.recv; save(); renderAll(); }
+    },
     expenses: () => state.expenses,
     active: () => state.activeEvent,
     setActive: (id) => { state.activeEvent = id; save(); renderAll(); },
@@ -1518,7 +1640,20 @@
     } else {
       draft.event = ev.target.value || null;
     }
+    // Un evento «por cobrar a …» marca el gasto con esa empresa/persona (si no tenía ya otra).
+    const evn = state.events.find((x) => x.id === draft.event);
+    if (evn && evn.recv && !draft.recv && state.parties.some((p) => p.id === evn.recv)) draft.recv = evn.recv;
     renderEventSelect();
+    renderPartySelect();
+  });
+  $('#partySelect').addEventListener('change', (ev) => {
+    if (ev.target.value === '__new__') {
+      const created = window.COBRAR.createParty();
+      draft.recv = created ? created.id : draft.recv;
+    } else {
+      draft.recv = ev.target.value || null;
+    }
+    renderPartySelect();
   });
   $('#tipInput').addEventListener('input', paintTip);
   $('#noteInput').addEventListener('input', autosize);

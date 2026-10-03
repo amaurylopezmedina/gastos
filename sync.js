@@ -58,7 +58,7 @@ window.SYNC = (() => {
        - cambió en los dos → gana lo de aquí (es lo último que hizo la persona);
        - nuevo en un lado  → se conserva;            - borrado en un lado y sin tocar en el otro → se borra.
      El servidor guarda además las últimas 400 versiones, así que nada se pierde de verdad. */
-  const LISTS = ['cats', 'pays', 'expenses', 'debts', 'imports', 'events'];
+  const LISTS = ['cats', 'pays', 'expenses', 'debts', 'imports', 'events', 'parties'];
 
   function canon(v) {
     if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';

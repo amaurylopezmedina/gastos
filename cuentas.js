@@ -55,7 +55,7 @@ window.CUENTAS = (() => {
       n++;
       if (!last || e.date > last) last = e.date;
       if (since && (e.date < since || (e.date === since && !(sinceTs && (e.ts || 0) > sinceTs)))) continue;   // ya está dentro del saldo conocido
-      delta += incoming || e.kind === 'income' ? e.cents : -e.cents;  // sale: gasto o transferencia enviada
+      delta += incoming || e.kind === 'income' || e.kind === 'refund' ? e.cents : -e.cents;  // entra: ingreso, transferencia o cobro; sale: gasto o transferencia enviada
     }
     return { last, n, balance: (Number.isFinite(pay.opening) ? pay.opening : 0) + delta };
   }

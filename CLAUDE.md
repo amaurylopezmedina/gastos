@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v39`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v41`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -82,8 +82,10 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 - **Bolsillo efectivo** es una forma de pago propia (`id:'bolsillo'`, `kind:'pocket'`); el «Efectivo» a secas es otra cosa y no cuenta en el control. **Cada tarjeta es su propia forma de pago** (`kind:'card'`, id `card_<id de la deuda>` si viene de Deudas). `migrate()` en app.js crea/enlaza todo de forma idempotente (se llama al cargar y al guardar).
 - **La foto de una tarjeta nunca se guarda**: `POST /api/tarjeta` la lee en un archivo temporal que se borra y devuelve SOLO banco, marca, tipo y los 4 últimos dígitos. Nunca guardes ni devuelvas el número completo, la fecha ni el CVV.
 - **El OCR agrupa por altura y un ticket fotografiado a mano sale inclinado**: el importe de la derecha cae en la línea de la etiqueta de abajo. `lectura.agrupar` endereza el texto con el ángulo medido de las propias cajas, y `voucher._triple` verifica con aritmética SIN fiarse de las etiquetas (dos importes que suman el tercero, ITBIS = 18 % de la base). Nunca dependas de «la línea que dice Total».
+- **No dejes un `.js` roto en el árbol ni un segundo**: es producción y un teléfono que se actualiza en ese instante guarda la versión rota. Valida con `node --check` ANTES de que el archivo quede en su sitio (edita en una copia o con scripts que no escriban si algo falla) y, si ocurre, sube `CACHE` otra vez.
 - **Un `<input type=file>`: copia la lista (`Array.from(input.files)`) ANTES de vaciar el campo**: en Chrome de escritorio la `FileList` se vacía con él (en iOS no, y por eso no se vio).
 - **Propina adicional (`tip`)**: lo que se deja ENCIMA de la factura. El gasto guarda `cents` = factura + propina (lo que de verdad salió) y `tip` aparte, para poder editarla. Al servidor se le confirma solo el total de la factura.
+- **Gasto personal vs salida real**: `isSpend` (presupuesto/totales) excluye lo `recv` (por cobrar); `isCharge` es toda salida real de dinero (concilia con el banco y mueve saldos). Un cobro es `kind:'refund'`: devuelve dinero a una cuenta, NO es ingreso ni gasto. No cuentes `state.expenses` a pelo.
 - **Tres tipos de movimiento** (`kind`): gasto (sin kind), `income`, y `transfer` (con `to`: la cuenta destino). Una transferencia
   mueve saldos entre tus cuentas pero NO es gasto, ni ingreso, ni presupuesto. Pagar una tarjeta o préstamo desde una cuenta es
   un gasto con rubro `cuotas`, no una transferencia. Los totales usan `isSpend`; no cuentes `state.expenses` a pelo.
@@ -118,6 +120,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | `cuentas.js` | Tarjetas (cada una su forma de pago; alta con foto o a mano, la foto no se guarda) y cuentas bancarias (forma de pago con `kind:'account'`, número `000000` hasta saber el real), saldo calculado y tabla «Hasta qué día hay datos» |
 | `bolsillo.js` | Pestaña Bolsillo: el efectivo que llevas encima. Arranca en 0; retiros/depósitos con una cuenta; «Contar lo que llevo» compara con lo esperado y guarda faltantes/sobrantes (`pay.counts`) |
 | `eventos.js` | Eventos: etiqueta OPCIONAL del gasto (`expense.event`) para ver un viaje/actividad en un reporte aparte; el gasto sigue contando igual. «Evento actual» preselecciona los gastos nuevos |
+| `cobrar.js` | Por cobrar: gastos que pagas tú pero son de una empresa/persona (`expense.recv`). NO cuentan en el presupuesto ni en el total personal, sí mueven saldos reales. Cobrar crea un movimiento `kind:'refund'` (no es ingreso) |
 | `bandeja.js` | Facturas con IA: foto → servidor → bandeja de revisión → gasto con id fijo y rubro. El botón de subir (cámara) también acepta estados PDF/CSV y los manda a `statement.js` |
 | `servidor/` | API de facturas (FastAPI + OCR + Ollama + verificador). Corre en la máquina de casa; datos fuera del repo (`~/finanzas`). Ver `docs/PLAN-FOTOS-IA.md` |
 | `loans.js` | Deudas: cuota, amortización, consolidado, calendario mensual, avisos, `.ics` |

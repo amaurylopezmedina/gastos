@@ -23,22 +23,23 @@ window.EVENTOS = (() => {
 
   /* ---------------- Cálculo (sin DOM, para poder probarlo) ---------------- */
 
-  const isSpend = (e) => e.kind !== 'income' && e.kind !== 'transfer';
+  const isSpend = (e) => e.kind !== 'income' && e.kind !== 'transfer' && e.kind !== 'refund';     // salida real (incluye lo por cobrar)
 
   function summary(eventId, expenses) {
     const items = expenses.filter((e) => e.event === eventId && isSpend(e));
     const add = (map, key, cents) => map.set(key, (map.get(key) || 0) + cents);
     const byCat = new Map(), byPay = new Map(), byDay = new Map();
-    let total = 0, tips = 0;
+    let total = 0, tips = 0, recv = 0;
     for (const e of items) {
       total += e.cents;
+      if (e.recv) recv += e.cents;
       tips += Number.isFinite(e.tip) ? e.tip : 0;
       add(byCat, e.rubro || ('cat:' + (e.cat || '')), e.cents);
       add(byPay, e.pay || '', e.cents);
       add(byDay, e.date, e.cents);
     }
     const dates = items.map((e) => e.date).sort();
-    return { items, total, tips, count: items.length, first: dates[0] || null, last: dates[dates.length - 1] || null, byCat, byPay, byDay };
+    return { items, total, tips, recv, count: items.length, first: dates[0] || null, last: dates[dates.length - 1] || null, byCat, byPay, byDay };
   }
 
   const sorted = (map) => Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
@@ -149,6 +150,18 @@ window.EVENTOS = (() => {
     card.appendChild(el('div', 'pocket-amount', host.fmt(s.total)));
     card.appendChild(el('div', 'pocket-sub', host.tn('ev.count', s.count) + ' · ' + range(s) + (s.tips ? ' · ' + host.t('ev.tips', { n: host.fmt(s.tips) }) : '')));
     body.appendChild(card);
+    if (s.recv) body.appendChild(el('p', 'note', host.t('ev.recvPart', { n: host.fmt(s.recv) })));
+
+    // Empresa/persona a la que se le cobra por defecto lo de este evento (los gastos nuevos salen ya marcados).
+    const pr = el('label', 'field');
+    pr.appendChild(el('span', null, host.t('ev.recvDefault')));
+    const ps = el('select');
+    const none = el('option', null, host.t('recv.none')); none.value = ''; ps.appendChild(none);
+    for (const p of host.parties()) { const o = el('option', null, '\u{1F4BC} ' + p.name); o.value = p.id; ps.appendChild(o); }
+    ps.value = ev.recv && host.parties().some((p) => p.id === ev.recv) ? ev.recv : '';
+    ps.addEventListener('change', () => host.setEventParty(ev.id, ps.value || null));
+    pr.appendChild(ps);
+    body.appendChild(pr);
 
     const actions = el('div', 'pocket-actions');
     const isActive = host.active() === ev.id;

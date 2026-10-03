@@ -54,7 +54,7 @@ window.BOLSILLO = (() => {
     let cents = 0;
     let n = 0;
     for (const e of expenses) {
-      if (e.pay !== CASH || e.kind === 'income' || e.kind === 'transfer') continue;
+      if (e.pay !== CASH || e.kind === 'income' || e.kind === 'transfer' || e.kind === 'refund') continue;
       if (e.date.slice(0, 7) !== monthKey) continue;
       cents += e.cents;
       n++;
@@ -126,10 +126,11 @@ window.BOLSILLO = (() => {
     row.type = 'button';
     const incoming = e.kind === 'transfer' && e.to === CASH;
     const outgoing = e.kind === 'transfer' && e.pay === CASH;
-    const plus = incoming || e.kind === 'income';
+    const plus = incoming || e.kind === 'income' || e.kind === 'refund';
     let title;
     if (incoming) title = '\u{1F3E7} ' + host.t('pocket.in') + ' ← ' + host.payName(e.pay);
     else if (outgoing) title = '\u{1F3E6} ' + host.t('pocket.out') + ' → ' + host.payName(e.to);
+    else if (e.kind === 'refund') title = '\u{1F4BC} ' + host.t('recv.refundTitle');
     else title = (e.rubro && window.RUBROS.get(e.rubro) ? window.RUBROS.name(e.rubro) : host.catName(e.cat)) + (e.note ? ' · ' + e.note : '');
     const left = el('span', null, title);
     left.appendChild(el('small', 'pocket-date', '  ' + shortDate(e.date)));

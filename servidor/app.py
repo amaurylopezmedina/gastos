@@ -497,7 +497,7 @@ app.include_router(api)
 
 WEB = Path(__file__).resolve().parent.parent
 WEB_ARCHIVOS = {'index.html', 'styles.css', 'app.js', 'i18n.js', 'statement.js', 'reconcile.js', 'loans.js',
-                'rubros.js', 'sync.js', 'presupuesto.js', 'cuentas.js', 'bolsillo.js', 'eventos.js', 'bandeja.js', 'sw.js', 'manifest.webmanifest'}
+                'rubros.js', 'sync.js', 'presupuesto.js', 'cuentas.js', 'bolsillo.js', 'eventos.js', 'cobrar.js', 'bandeja.js', 'sw.js', 'manifest.webmanifest'}
 WEB_CARPETAS = {'icons': {'.png'}, 'vendor': {'.js'}}
 _TIPOS = {'.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
           '.js': 'text/javascript; charset=utf-8', '.png': 'image/png',
