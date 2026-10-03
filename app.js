@@ -1140,6 +1140,11 @@
       save();
       return pay.id;
     },
+    expenses: () => state.expenses,
+    adopt: (id, sig) => {                    // un gasto apuntado a mano/con foto que ya salió en un estado: ya tiene firma
+      const e = state.expenses.find((x) => x.id === id);
+      if (e && !e.sig) { e.sig = sig; save(); }
+    },
     suggestRubros: async (descs) => {
       try {
         const r = await window.SYNC.api('/clasificar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comercios: descs }) });
@@ -1164,6 +1169,12 @@
     amountText: (cents) => amountText(cents),
     pays: () => state.pays,
     payName: (p) => label(p, 'pay'),
+    addCard: (name) => {
+      const pay = { id: uid(), icon: '\u{1F4B3}', name: name, kind: 'card' };
+      state.pays.push(pay);
+      save();
+      return pay.id;
+    },
     hasExpense: (id) => state.expenses.some((e) => e.id === id),
     addExpense: (e) => {
       state.expenses.push(e);

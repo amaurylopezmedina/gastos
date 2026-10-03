@@ -17,7 +17,7 @@ def test_todas_las_reglas_apuntan_a_rubros_que_existen_y_que_la_ia_puede_usar():
     ('NETFLIX.COM', 'suscripciones'), ('Apple.com/bill', 'suscripciones'),
     ('Autorrepuesto Neno', 'mant_veh'), ('Colmado Los Hermanos', 'colmado'),
     ('UTESA', 'colegio'), ('ESSO LAS PALMAS', 'combustible'), ('GARDEN FOOD PARK', 'comerfuera'), ('COFFEY', 'comerfuera'),
-    ('DECOPLAX', 'reparaciones'), ('TRAINING MOCA', 'ocio'), ('Clínica Corominas', 'consultas'), ('Ferretería Ochoa', 'reparaciones'),
+    ('DECOPLAX', 'reparaciones'), ('LUBRICAR EJEMPLO', 'mant_veh'), ('TRAINING MOCA', 'ocio'), ('Clínica Corominas', 'consultas'), ('Ferretería Ochoa', 'reparaciones'),
 ])
 def test_comercios_conocidos(comercio, esperado):
     assert r.por_palabras(comercio) == esperado

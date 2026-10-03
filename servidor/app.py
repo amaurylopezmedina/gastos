@@ -9,6 +9,7 @@ import re
 import sqlite3
 import threading
 import time
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, UploadFile
@@ -20,6 +21,7 @@ import lectura
 import reglas_rubro
 import rubros
 import verificar
+import voucher
 from acceso import exigir
 
 DATOS = Path(os.environ.get('GASTOS_DATOS', Path.home() / 'finanzas'))
@@ -101,15 +103,23 @@ def procesar(fid):
     c.commit()
     try:
         texto, conf = lectura.ocr(str(FOTOS / f'{fid}.jpg'))
-        campos = lectura.ollama(texto)
-        por = 'ollama'
-        if campos is None:                       # sin IA: solo expresiones regulares, siempre a revisar
-            campos, por = lectura.heuristica(texto), 'heuristica'
-            campos['total'] = campos.get('total')
-        campos['rubro'], campos['rubro_por'] = decidir_rubro(c, campos, texto, usar_ia=(por == 'ollama'))
+        subida = c.execute('SELECT creada FROM facturas WHERE id=?', (fid,)).fetchone()
+        ref = datetime.fromtimestamp(subida['creada']).date() if subida and subida['creada'] else date.today()
+        extra = []
+        v = voucher.leer(texto, ref)             # comprobante del POS de una tarjeta: determinista, sin modelo
+        if v:
+            campos, extra = v
+            por = 'voucher'
+        else:
+            campos = lectura.ollama(texto)
+            por = 'ollama'
+            if campos is None:                   # sin IA: solo expresiones regulares, siempre a revisar
+                campos, por = lectura.heuristica(texto), 'heuristica'
+                campos['total'] = campos.get('total')
+        campos['rubro'], campos['rubro_por'] = decidir_rubro(c, campos, texto, usar_ia=(por in ('ollama', 'voucher')))
         campos['categoria'] = rubros.CATEGORIA.get(campos['rubro'], 'otros')
-        problemas = verificar.verificar(campos, texto, conf)
-        if por != 'ollama':
+        problemas = verificar.verificar(campos, texto, conf) + extra
+        if por not in ('ollama', 'voucher'):
             problemas.append('sin_ia')
         estado = 'listo' if not problemas else 'revisar'
         c.execute('UPDATE facturas SET estado=?, ocr_texto=?, ocr_conf=?, campos=?, problemas=?, leida_por=?, error=NULL WHERE id=? AND estado=\'leyendo\'',

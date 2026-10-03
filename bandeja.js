@@ -108,16 +108,36 @@ window.BANDEJA = (() => {
     sel.value = selected && window.RUBROS.get(selected) ? selected : '';
   }
 
-  function fillPays(sel) {
+  // `card` = últimos 4 dígitos de la tarjeta impresos en el comprobante (si los hay): se propone esa forma de pago,
+  // y si aún no existe se ofrece crearla con el mismo nombre que usa la importación de estados.
+  function fillPays(sel, card) {
     sel.replaceChildren();
+    delete sel.dataset.newName;
     const none = el('option', null, t('bnd.pick'));
     none.value = '';
     sel.appendChild(none);
+    let match = null;
     for (const p of host.pays()) {
       const o = el('option', null, host.payName(p));
       o.value = p.id;
       sel.appendChild(o);
+      if (card && p.kind !== 'account' && host.payName(p).indexOf('\u00b7\u00b7\u00b7' + card) >= 0) match = p.id;
     }
+    if (card && !match) {
+      const name = t('imp.cardName', { n: card });
+      const o = el('option', null, '\u2795 ' + name);
+      o.value = '__new__';
+      sel.appendChild(o);
+      sel.dataset.newName = name;
+      match = '__new__';
+    }
+    if (match) sel.value = match;
+    cardNote();
+  }
+
+  function cardNote() {
+    const p = host.pays().find((x) => x.id === $('#bndPay').value);
+    $('#bndCardNote').hidden = !(($('#bndPay').value === '__new__') || (p && p.id !== 'efectivo' && p.id !== 'transfer' && p.kind !== 'account'));
   }
 
   async function openDetail(id) {
@@ -132,8 +152,7 @@ window.BANDEJA = (() => {
     $('#bndFecha').value = /^\d{4}-\d{2}-\d{2}$/.test(c.fecha || '') ? c.fecha : '';
     $('#bndTotal').value = Number.isFinite(c.total) ? host.amountText(c.total) : '';
     fillRubros($('#bndRubro'), c.rubro);
-    fillPays($('#bndPay'));
-    $('#bndCardNote').hidden = true;
+    fillPays($('#bndPay'), c.tarjeta);
 
     const probs = $('#bndProblems');
     probs.replaceChildren();
@@ -143,7 +162,7 @@ window.BANDEJA = (() => {
     }
     probs.hidden = !probs.children.length;
     const busy = it.estado === 'nueva' || it.estado === 'leyendo';
-    $('#bndInfo').textContent = busy ? t('bnd.wait') : '';
+    $('#bndInfo').textContent = busy ? t('bnd.wait') : (c.tarjeta ? t('bnd.card', { n: c.tarjeta }) : '');
     $('#bndApply').disabled = busy;
 
     $('#bndPhoto').hidden = true;
@@ -163,7 +182,8 @@ window.BANDEJA = (() => {
     $('#bndListView').hidden = false;
     $('#bndTitle').textContent = t('bnd.open');
     if (photoUrl) { URL.revokeObjectURL(photoUrl); photoUrl = null; }
-    refresh().then(paintList);
+    // Si no queda nada por revisar, la hoja se cierra sola.
+    refresh().then(() => { if (!items.length) closeSheet(); else paintList(); });
   }
 
   async function apply() {
@@ -173,7 +193,7 @@ window.BANDEJA = (() => {
     const fecha = $('#bndFecha').value;
     const cents = host.parseAmount($('#bndTotal').value);
     const rubro = $('#bndRubro').value;
-    const pay = $('#bndPay').value;
+    let pay = $('#bndPay').value;
     if (!comercio || !fecha || !(cents > 0)) return host.toast(t('bnd.invalid'));
     if (!rubro) return host.toast(t('bnd.needrubro'));
     if (!pay) return host.toast(t('bnd.needpay'));
@@ -191,6 +211,7 @@ window.BANDEJA = (() => {
       // 2) gasto local con id fijo: si algo falla después, repetir no lo duplica
       const id = 'f_' + it.id;
       if (!host.hasExpense(id)) {
+        if (pay === '__new__') pay = host.addCard($('#bndPay').dataset.newName);   // la tarjeta del comprobante, aún sin crear
         host.addExpense({
           id, cents, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
           note: comercio.slice(0, 60), photo: 'ph_' + id, src: 'foto', ts: Date.now()
@@ -245,10 +266,7 @@ window.BANDEJA = (() => {
     $('#bndBackdrop').addEventListener('click', closeSheet);
     $('#bndApply').addEventListener('click', apply);
     $('#bndDiscard').addEventListener('click', discard);
-    $('#bndPay').addEventListener('change', () => {
-      const p = host.pays().find((x) => x.id === $('#bndPay').value);
-      $('#bndCardNote').hidden = !p || p.id === 'efectivo' || p.id === 'transfer';
-    });
+    $('#bndPay').addEventListener('change', cardNote);
     refresh();
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   }

@@ -182,3 +182,26 @@ def test_ninguna_respuesta_se_puede_cachear_en_el_borde(c):
     """Ni siquiera los errores: Cloudflare cachea un 404 de un .js durante minutos."""
     for ruta in ('/', '/app.js', '/no-existe.js', '/api/estado', '/api/fotos/nada', '/PRIVADO/x.js'):
         assert c.get(ruta).headers.get('cache-control') == 'no-store', ruta
+
+
+def test_voucher_de_tarjeta_se_lee_sin_modelo_y_propone_la_tarjeta(c, monkeypatch):
+    import time
+    from datetime import datetime
+    hoy = datetime.now().strftime('%d/%m/%y')
+    texto = ("LUBRICAR EJEMPLO\nMOCA.DO\nID Conercio:000000001234567  AZUL\nPagos Rapidos\nX00*00*0000X9999  Venta\nVISA  Visa Credit\n"
+             f"Metodo Entrada: Sin Contacto\n{hoy}  14:41:38\nAID:A0000000031010\nTran #::0000000001  Aprobaclon #:123456\nLote #:000001\n"
+             "Honto:  00  1,000.51\nITBIS:  180.00\nTotal:  DOP  1,180.00\nCopia Cliente")
+    monkeypatch.setattr(servidor.lectura, 'ocr', lambda ruta: (texto, 0.92))
+    def no_debe_llamarse(*a, **k): raise AssertionError('un voucher no debe usar el modelo para extraer')
+    monkeypatch.setattr(servidor.lectura, 'ollama', no_debe_llamarse)
+    monkeypatch.setattr(servidor.lectura, 'clasificar_llm', lambda comercio, lineas: None)
+    fid = c.post('/api/facturas', files={'archivo': ('v.jpg', jpg('pink'), 'image/jpeg')}).json()['id']
+    for _ in range(200):
+        f = c.get(f'/api/facturas/{fid}').json()
+        if f['estado'] not in ('nueva', 'leyendo'):
+            break
+        time.sleep(0.05)
+    k = f['campos']
+    assert f['leida_por'] == 'voucher' and f['estado'] == 'listo' and f['problemas'] == []
+    assert k['total'] == 118000 and k['itbis'] == 18000 and k['subtotal'] == 100000 and k['tarjeta'] == '9999'
+    assert k['rubro'] == 'mant_veh' and k['categoria'] == 'transpor'

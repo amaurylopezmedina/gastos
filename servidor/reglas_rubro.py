@@ -17,7 +17,7 @@ REGLAS = [
     ('optica', r'[o]ptica|lentes|oftalm'),
     ('colegio', r'utesa|universidad|colegio|pucmm|unibe|\bintec\b|matr[i]cula|inscripci[o]n|mensualidad escolar'),
     ('seguro_veh', r'seguro (de )?(veh[i]culo|auto|carro)|seguros? (universal|mapfre|la colonial)'),
-    ('mant_veh', r'autorrepuesto|repuesto|taller|mec[a]nic|lubricentro|cambio de aceite|frenos|bater[i]a|alineaci[o]n'),
+    ('mant_veh', r'autorrepuesto|repuesto|taller|mec[a]nic|lubric|cambio de aceite|frenos|bater[i]a|alineaci[o]n'),
     ('neumaticos', r'neum[a]tic|\bgomas?\b|gomera'),
     ('lavado', r'autolavado|lavado de|car ?wash|parqueo|parking|estacionamiento'),
     ('transporte', r'aerodom|avansi|uber|indriver|\bpasaje|aerol[i]nea|aeropuerto|\bcaribe tours|metro de santo domingo|teleferico'),

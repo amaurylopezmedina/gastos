@@ -324,11 +324,40 @@ window.STATEMENT = (() => {
     if (result.failed) host.toast(tn('imp.someFailed', result.failed));
 
     prepareCard(cardSeen);
+    linkManual();
     buildList();
     refreshSummary();
     $('#impSheet').hidden = false;
     $('#impBackdrop').hidden = false;
     $('#impSheet').scrollTop = 0;
+  }
+
+  /* Un gasto apuntado a mano o con foto de factura no tiene firma, así que el estado de la tarjeta lo traería otra vez.
+     Se busca, para la tarjeta elegida, un apunte con el MISMO importe y como mucho 4 días de diferencia: ese movimiento
+     viene desmarcado («ya apuntado») y, al importar, el apunte adopta la firma del banco para que no vuelva a salir. */
+  const dayDiff = (a, b) => Math.abs((Date.parse(a + 'T12:00:00Z') - Date.parse(b + 'T12:00:00Z')) / 86400000);
+
+  function linkManual() {
+    const sel = $('#impPay');
+    const payId = sel.value && sel.value !== '__new__' ? sel.value : null;
+    const free = payId
+      ? host.expenses().filter((e) => e.pay === payId && !e.sig && e.kind !== 'income' && e.kind !== 'transfer')
+      : [];
+    const taken = new Set();
+    for (const r of parsed) {
+      r.manual = null;
+      r.on = !r.credit && !r.dup;
+      if (r.credit || r.dup || !usable(r)) continue;
+      const cents = convert(r);
+      let best = null;
+      for (const e of free) {
+        if (taken.has(e.id) || e.cents !== cents) continue;
+        const d = dayDiff(e.date, r.date);
+        if (d <= 4 && (!best || d < best.d)) best = { e: e, d: d };
+      }
+      if (best) { r.manual = best.e.id; r.on = false; taken.add(best.e.id); }
+      if (r.cardpay) r.on = false;
+    }
   }
 
   // Si el estado de cuenta trae los últimos dígitos, se propone una forma de
@@ -404,6 +433,7 @@ window.STATEMENT = (() => {
     if (row.currency !== host.currency()) tags.push(row.currency);
     if (row.credit) tags.push(t('imp.tag.payment'));
     if (row.dup) tags.push(t('imp.tag.dup'));
+    if (row.manual) tags.push(t('imp.tag.manual'));
     if (row.cardpay) tags.push(t('imp.tag.cardpay'));
     el.querySelector('.imp-meta').textContent = tags.join('  ·  ');
 
@@ -524,6 +554,8 @@ window.STATEMENT = (() => {
     let pay = sel.value;
     if (pay === '__new__') pay = host.addPay(sel.dataset.newName, '\u{1F4B3}');
 
+    // Lo ya apuntado a mano/con foto y que sale en este estado: adopta la firma del banco (no vuelve a salir).
+    for (const r of parsed) if (r.manual && !r.on) host.adopt(r.manual, r.sig);
     host.addImported(picked.map((r) => ({
       cents: convert(r), cat: r.cat, rubro: r.rubro || undefined, pay: pay, date: r.date,
       note: r.desc, sig: r.sig, file: r.file, src: r.src
@@ -539,6 +571,7 @@ window.STATEMENT = (() => {
     $('#impCancel').addEventListener('click', close);
     $('#impBackdrop').addEventListener('click', close);
     $('#impSave').addEventListener('click', commit);
+    $('#impPay').addEventListener('change', () => { linkManual(); buildList(); refreshSummary(); });
     $('#impAll').addEventListener('click', toggleAll);
     $('#impRateInput').addEventListener('input', (ev) => {
       const n = host.parseNumber(ev.target.value);
