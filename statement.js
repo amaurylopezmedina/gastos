@@ -156,7 +156,7 @@ window.STATEMENT = (() => {
   /* ---------------- Lector de CSV ---------------- */
 
   /* Estados de tarjeta en CSV: «Fecha Transacción, Fecha Posteo, No. Referencia, Concepto, Monto» y, arriba,
-     «No. Tarjeta:4174********1441». Un monto negativo es un abono (pago a la tarjeta). */
+     «No. Tarjeta:1234********5678» (ejemplo inventado). Un monto negativo es un abono (pago a la tarjeta). */
   function csvCells(line) {
     const out = [];
     let cur = '';
