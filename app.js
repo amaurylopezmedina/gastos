@@ -68,6 +68,11 @@
       st.pays.splice(at >= 0 ? at + 1 : 0, 0, pocket);          // justo después de «Efectivo»
     }
     pocket.kind = 'pocket';
+    const ei = st.pays.findIndex((p) => p.id === 'efectivo');         // siempre justo después de «Efectivo»
+    if (ei >= 0 && st.pays.indexOf(pocket) !== ei + 1) {
+      st.pays.splice(st.pays.indexOf(pocket), 1);
+      st.pays.splice(st.pays.findIndex((p) => p.id === 'efectivo') + 1, 0, pocket);
+    }
     const cash = st.pays.find((p) => p.id === 'efectivo');
     if (cash) {
       for (const k of ['opening', 'openingDate', 'openingTs', 'counts']) {
