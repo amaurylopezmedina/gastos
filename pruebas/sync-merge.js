@@ -38,5 +38,11 @@ const ids = (m) => m.expenses.map((x) => x.id).sort().join(',');
   const m = merge3(base, l, s); t('caso real: lo mío', m.pays[0].openingDate === '2026-10-03'); t('caso real: lo del servidor', m.pays[1].opening === 2163507 && ids(m) === 'a,b,nuevo' && m.debts.length === 1, m); }
 // 11. idempotencia: combinar dos veces da lo mismo
 { const l = clon(base); l.expenses.push(E('x')); const s = clon(base); s.expenses.push(E('y')); const m1 = merge3(base, l, s); const m2 = merge3(s, m1, s); t('idempotente', eq(Object.keys(m1).sort(), Object.keys(m2).sort()) && ids(m2) === 'a,b,x,y'); }
+// 12. eventos: se combinan como el resto de las listas (cada lado crea uno distinto; el borrado de un lado sin tocar se aplica)
+{ const b2 = Object.assign(clon(base), { events: [{ id: 'ev1', name: 'Viaje' }], activeEvent: 'ev1' }); b2.expenses[0].event = 'ev1';
+  const l = clon(b2); l.events.push({ id: 'ev2', name: 'Fiesta' }); const s2 = clon(b2); s2.events.push({ id: 'ev3', name: 'Compra' });
+  const m = merge3(b2, l, s2); t('eventos: se unen los creados en cada lado', m.events.map((e) => e.id).sort().join(',') === 'ev1,ev2,ev3', m.events);
+  const l2 = clon(b2); l2.events = []; l2.activeEvent = null; delete l2.expenses[0].event; const s3 = clon(b2); const m2 = merge3(b2, l2, s3);
+  t('eventos: borrado local sin tocar en el servidor', m2.events.length === 0 && m2.activeEvent === null && m2.expenses.find((x) => x.id === 'a').event === undefined, m2); }
 console.log(`${ok} pruebas bien, ${fail} fallos`);
 process.exit(fail ? 1 : 0);

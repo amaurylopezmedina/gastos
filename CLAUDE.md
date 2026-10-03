@@ -35,7 +35,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 
 ## Cómo se trabaja aquí
 
-1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v38`). Sin eso, los
+1. **Cada cambio en un archivo servido sube `CACHE` en `sw.js`** (hoy `gastos-v39`). Sin eso, los
    iPhone que ya tienen la app instalada no ven el cambio. La app se actualiza sola al abrirla y
    al volver a primer plano, y se recarga (nunca con un gasto a medio escribir).
 2. Verifica en el navegador (`preview_start` con la config `gastos` de `.claude/launch.json`,
@@ -117,6 +117,7 @@ personales, el nombre del usuario, correos, ni contenido de estados de cuenta.
 | `presupuesto.js` | Pestaña Presupuesto: presupuestado contra real por rubro; Deudas sale de la pestaña Deudas |
 | `cuentas.js` | Tarjetas (cada una su forma de pago; alta con foto o a mano, la foto no se guarda) y cuentas bancarias (forma de pago con `kind:'account'`, número `000000` hasta saber el real), saldo calculado y tabla «Hasta qué día hay datos» |
 | `bolsillo.js` | Pestaña Bolsillo: el efectivo que llevas encima. Arranca en 0; retiros/depósitos con una cuenta; «Contar lo que llevo» compara con lo esperado y guarda faltantes/sobrantes (`pay.counts`) |
+| `eventos.js` | Eventos: etiqueta OPCIONAL del gasto (`expense.event`) para ver un viaje/actividad en un reporte aparte; el gasto sigue contando igual. «Evento actual» preselecciona los gastos nuevos |
 | `bandeja.js` | Facturas con IA: foto → servidor → bandeja de revisión → gasto con id fijo y rubro. El botón de subir (cámara) también acepta estados PDF/CSV y los manda a `statement.js` |
 | `servidor/` | API de facturas (FastAPI + OCR + Ollama + verificador). Corre en la máquina de casa; datos fuera del repo (`~/finanzas`). Ver `docs/PLAN-FOTOS-IA.md` |
 | `loans.js` | Deudas: cuota, amortización, consolidado, calendario mensual, avisos, `.ics` |

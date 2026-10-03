@@ -737,3 +737,11 @@ html, body, button, input, select, textarea, label, a { touch-action: manipulati
 .bnd-doc-act { align-self: stretch; min-width: 52px; font-size: 22px; color: var(--accent); background: none; border-left: 1px solid var(--line); }
 
 .bnd-banner.done { color: var(--text-dim); font-weight: 500; }
+
+/* ---------- Eventos ---------- */
+.ev-chip { display: block; width: calc(100% - 32px); margin: 8px 16px 0; padding: 10px 14px; border-radius: 14px; background: var(--surface); color: var(--text-dim); text-align: left; font-weight: 500; }
+.ev-chip.on { color: var(--accent); font-weight: 650; }
+#evBackdrop { z-index: 10; }
+#evSheet { z-index: 11; }
+#evBody { padding-bottom: 12px; }
+#evBody > .pocket-btn { display: block; width: 100%; margin: 6px 0 10px; }

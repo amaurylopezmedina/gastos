@@ -217,6 +217,20 @@ window.BANDEJA = (() => {
     cardNote();
   }
 
+  // Evento opcional: por defecto el evento actual (si lo hay).
+  function fillEvents(sel) {
+    sel.replaceChildren();
+    const none = el('option', null, t('ev.none'));
+    none.value = '';
+    sel.appendChild(none);
+    for (const e of host.events()) {
+      const o = el('option', null, '\u{1F392} ' + e.name);
+      o.value = e.id;
+      sel.appendChild(o);
+    }
+    sel.value = host.events().some((e) => e.id === host.activeEvent()) ? host.activeEvent() : '';
+  }
+
   function cardNote() {
     const p = host.pays().find((x) => x.id === $('#bndPay').value);
     $('#bndCardNote').hidden = !(($('#bndPay').value === '__new__') || (p && p.id !== 'efectivo' && p.id !== 'transfer' && p.kind !== 'account' && p.kind !== 'pocket'));
@@ -243,6 +257,7 @@ window.BANDEJA = (() => {
     $('#bndDesc').value = '';
     fillRubros($('#bndRubro'), c.rubro);
     fillPays($('#bndPay'), c.tarjeta);
+    fillEvents($('#bndEvent'));
 
     const probs = $('#bndProblems');
     probs.replaceChildren();
@@ -304,7 +319,7 @@ window.BANDEJA = (() => {
       if (!host.hasExpense(id)) {
         if (pay === '__new__') pay = host.addCard($('#bndPay').dataset.newName);   // la tarjeta del comprobante, aún sin crear
         host.addExpense({
-          id, cents: cents + tip, tip: tip || undefined, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
+          id, cents: cents + tip, tip: tip || undefined, event: $('#bndEvent').value || undefined, cat: confirmed.campos.categoria || window.RUBROS.catOf(rubro), rubro, pay, date: fecha,
           note: [comercio, $('#bndDesc').value.trim()].filter(Boolean).join(' \u00b7 ').slice(0, 140), photo: 'ph_' + id, src: 'foto', ts: Date.now()
         });
       }

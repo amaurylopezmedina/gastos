@@ -48,7 +48,7 @@
     const base = {
       v: 3, lang: null, currency: 'EUR', budget: 0,
       cats: DEFAULT_CATS.slice(), pays: DEFAULT_PAYS.slice(),
-      expenses: [], debts: [], imports: [], budgetLines: {}
+      expenses: [], debts: [], imports: [], budgetLines: {}, events: [], activeEvent: null
     };
     if (!saved || typeof saved !== 'object') return base;
     const st = loadSaved(saved, base);
@@ -85,6 +85,7 @@
         if (e.to === 'efectivo') e.to = 'bolsillo';
       }
     }
+    if (st.activeEvent && !st.events.some((e) => e.id === st.activeEvent)) st.activeEvent = null;   // el evento actual ya no existe
     for (const d of st.debts) {
       if (!d || d.kind !== 'card' || d.pay) continue;
       const id = 'card_' + d.id;
@@ -110,6 +111,8 @@
       debts: Array.isArray(saved.debts) ? saved.debts : [],
       imports: Array.isArray(saved.imports) ? saved.imports : [],
       budgetLines: saved.budgetLines && typeof saved.budgetLines === 'object' && !Array.isArray(saved.budgetLines) ? saved.budgetLines : {},
+      events: Array.isArray(saved.events) ? saved.events.filter((e) => e && typeof e.id === 'string' && typeof e.name === 'string') : [],
+      activeEvent: typeof saved.activeEvent === 'string' ? saved.activeEvent : null,
       lang: typeof saved.lang === 'string' ? saved.lang : null,
       currency: typeof saved.currency === 'string' ? saved.currency : base.currency,
       budget: Number.isFinite(saved.budget) ? saved.budget : 0,
@@ -408,6 +411,7 @@
         const bits = [];
         if (e.note) bits.push(e.note);
         if (e.tip) bits.push(t('tip.short', { n: fmt(e.tip) }));
+        if (e.event) { const evn = state.events.find((x) => x.id === e.event); if (evn) bits.push('\u{1F392} ' + evn.name); }
         if (pay && !isTransfer(e)) bits.push(pay.icon + ' ' + label(pay, 'pay'));
         if (e.photo) bits.push('\u{1F4CE}');
         const note = row.querySelector('.item-note');
@@ -637,6 +641,7 @@
     if (window.PRESUPUESTO) window.PRESUPUESTO.render();
     if (window.CUENTAS) window.CUENTAS.render();
     if (window.BOLSILLO) window.BOLSILLO.render();
+    if (window.EVENTOS) window.EVENTOS.render();
   }
 
   /* ---------------- Hoja: añadir / editar ---------------- */
@@ -658,6 +663,7 @@
           kind: expense.kind === 'income' ? 'income' : expense.kind === 'transfer' ? 'transfer' : 'expense',
           to: expense.to || null,
           rubro: expense.rubro || null,
+          event: expense.event || null,
           pay: expense.pay || state.pays[0].id,
           date: expense.date,
           note: expense.note || '',
@@ -666,7 +672,7 @@
           dropPhoto: false
         }
       : {
-          id: null, raw: '', tip: 0, cat: state.cats[0].id, kind: 'expense', to: null, rubro: null, pay: state.pays[0].id,
+          id: null, raw: '', tip: 0, cat: state.cats[0].id, kind: 'expense', to: null, rubro: null, event: state.activeEvent || null, pay: state.pays[0].id,
           date: ymd(new Date()), note: '', photo: null,
           newPhoto: pendingPhoto || null, dropPhoto: false
         };
@@ -707,6 +713,27 @@
     return el;
   }
 
+  // Evento (opcional): agrupa el gasto para verlo en un reporte aparte; el gasto sigue contando igual.
+  function renderEventSelect() {
+    const sel = $('#eventSelect');
+    sel.textContent = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = t('ev.none');
+    sel.appendChild(none);
+    for (const e of state.events) {
+      const o = document.createElement('option');
+      o.value = e.id;
+      o.textContent = '\u{1F392} ' + e.name + (e.id === state.activeEvent ? '  \u2022' : '');
+      sel.appendChild(o);
+    }
+    const add = document.createElement('option');
+    add.value = '__new__';
+    add.textContent = t('ev.newOption');
+    sel.appendChild(add);
+    sel.value = draft && draft.event && state.events.some((e) => e.id === draft.event) ? draft.event : '';
+  }
+
   // Gasto / ingreso y rubro del presupuesto. El rubro fija la categoría de siempre.
   function renderKindRubro() {
     const income = draft.kind === 'income';
@@ -718,6 +745,9 @@
     $('#catPicker').hidden = income || transfer;
     $('#catLabel').hidden = income || transfer;
     $('#rubroSelect').hidden = transfer;           // una transferencia no es presupuesto
+    $('#eventSelect').hidden = income || transfer; // el evento agrupa GASTOS
+    $('#eventLabel').hidden = income || transfer;
+    renderEventSelect();
     $('#rubroLabel').hidden = transfer;
     $('#toLabel').hidden = !transfer;
     $('#toPicker').hidden = !transfer;
@@ -893,7 +923,8 @@
       kind: income ? 'income' : transfer ? 'transfer' : undefined,
       to: transfer ? draft.to : undefined,
       rubro: transfer ? undefined : (draft.rubro || undefined),
-      tip: tip || undefined
+      tip: tip || undefined,
+      event: draft.kind === 'expense' && draft.event && state.events.some((e) => e.id === draft.event) ? draft.event : undefined
     };
     if (isEdit) {
       const e = state.expenses.find((x) => x.id === draft.id);
@@ -1013,7 +1044,7 @@
 
   function exportCsv() {
     const esc = (s) => '"' + String(s).replace(/"/g, '""') + '"';
-    const header = ['csv.date', 'csv.cat', 'csv.pay', 'csv.note', 'csv.photo', 'csv.amount'].map(t).join(';');
+    const header = ['csv.date', 'csv.cat', 'csv.pay', 'csv.note', 'csv.photo', 'csv.amount', 'csv.event'].map(t).join(';');
     const lines = [header];
     const rows = state.expenses.slice().sort((a, b) => a.date.localeCompare(b.date));
     for (const e of rows) {
@@ -1024,7 +1055,8 @@
         esc(pay ? label(pay, 'pay') : ''),
         esc(e.note || ''),
         e.photo ? t('csv.yes') : '',
-        (e.cents / 100).toFixed(2).replace('.', decimalSep)
+        (e.cents / 100).toFixed(2).replace('.', decimalSep),
+        esc((state.events.find((x) => x.id === e.event) || {}).name || '')
       ].join(';'));
     }
     download('gastos-' + stamp() + '.csv', '﻿' + lines.join('\r\n'), 'text/csv');
@@ -1076,6 +1108,7 @@
       merge(state.cats, data.cats);
       merge(state.pays, data.pays);
       merge(state.imports, data.imports);
+      merge(state.events, data.events);
       if (lines) {                       // presupuesto por rubros: lo que ya tienes puesto no se pisa
         for (const [id, cents] of Object.entries(lines)) {
           if (window.RUBROS.get(id) && Number.isFinite(cents) && cents >= 0 && state.budgetLines[id] === undefined) {
@@ -1255,6 +1288,8 @@
       return pay.id;
     },
     imports: () => state.imports,
+    events: () => state.events,
+    activeEvent: () => state.activeEvent,
     openExpense: (id) => {
       const e = state.expenses.find((x) => x.id === id);
       if (e) openSheet(e); else toast(t('bnd.noExpense'));
@@ -1265,6 +1300,46 @@
       save();
       cursor = startOfMonth(parseDate(e.date));
       renderAll();
+    }
+  });
+
+  /* ---------------- Eventos ---------------- */
+
+  window.EVENTOS.init({
+    t: t,
+    tn: tn,
+    fmt: fmt,
+    toast: toast,
+    amountText: (cents) => amountText(cents),
+    download: (name, text, type) => download(name, text, type),
+    dayLabel: (d) => dayLabel(d),
+    catName: (id) => catName(id),
+    payName: (id) => payLabel(id),
+    events: () => state.events,
+    expenses: () => state.expenses,
+    active: () => state.activeEvent,
+    setActive: (id) => { state.activeEvent = id; save(); renderAll(); },
+    addEvent: (name) => {
+      const ev = { id: 'ev_' + uid(), name: name, created: ymd(new Date()) };
+      state.events.push(ev);
+      save();
+      renderAll();
+      return ev;
+    },
+    renameEvent: (id, name) => {
+      const ev = state.events.find((e) => e.id === id);
+      if (ev) { ev.name = name; save(); renderAll(); }
+    },
+    removeEvent: (id) => {                      // los gastos se quedan: solo pierden la etiqueta
+      state.events = state.events.filter((e) => e.id !== id);
+      for (const e of state.expenses) if (e.event === id) delete e.event;
+      if (state.activeEvent === id) state.activeEvent = null;
+      save();
+      renderAll();
+    },
+    openExpense: (id) => {
+      const e = state.expenses.find((x) => x.id === id);
+      if (e) openSheet(e);
     }
   });
 
@@ -1433,6 +1508,17 @@
     if (ignored) toast(tn('msg.upIgnored', ignored));
     for (const f of photos) await window.BANDEJA.send(f);
     if (docs.length) window.STATEMENT.open(docs);
+  });
+  $('#eventSelect').addEventListener('change', (ev) => {
+    if (ev.target.value === '__new__') {
+      const created = window.EVENTOS.create();
+      draft.event = created ? created.id : draft.event;
+      // El primer evento que creas puede quedar como «evento actual»: lo siguiente que apuntes entra solo.
+      if (created && !state.activeEvent && confirm(t('ev.askActive', { name: created.name }))) { state.activeEvent = created.id; save(); }
+    } else {
+      draft.event = ev.target.value || null;
+    }
+    renderEventSelect();
   });
   $('#tipInput').addEventListener('input', paintTip);
   $('#noteInput').addEventListener('input', autosize);

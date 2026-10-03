@@ -42,6 +42,7 @@
       </div>
 
       <button class="bnd-banner" hidden></button>
+      <button class="ev-chip"></button>
       <div id="listBody"></div>
 
       <div class="empty" id="listEmpty" hidden>
@@ -62,6 +63,7 @@
 
     <div class="scroll">
       <button class="bnd-banner" hidden></button>
+      <button class="ev-chip"></button>
       <div class="cards">
         <div class="card"><span class="card-label" data-i18n="stats.month"></span><span class="card-value" id="stTotal">0</span></div>
         <div class="card"><span class="card-label" data-i18n="stats.avg"></span><span class="card-value" id="stAvg">0</span></div>
@@ -276,6 +278,9 @@
     <div class="picker-label" data-i18n="sheet.desc"></div>
     <textarea id="noteInput" class="desc-input" rows="1" maxlength="140" data-i18n-ph="sheet.desc.ph"></textarea>
 
+    <div class="picker-label" id="eventLabel" data-i18n="sheet.event"></div>
+    <select class="rubro-select" id="eventSelect"></select>
+
     <div class="tip-row" id="tipRow">
       <label class="tip-field"><span data-i18n="tip.label"></span><input type="text" inputmode="decimal" id="tipInput" placeholder="0"></label>
       <div class="tip-chips">
@@ -433,6 +438,18 @@
 </div>
 
 <!-- ============ HOJA: BANDEJA DE FACTURAS ============ -->
+<!-- ============ HOJA: EVENTOS ============ -->
+<div class="sheet-backdrop" id="evBackdrop" hidden></div>
+<div class="sheet" id="evSheet" hidden role="dialog" aria-modal="true">
+  <div class="sheet-head">
+    <button class="sheet-btn" id="evClose" data-i18n="ev.close"></button>
+    <strong id="evTitle"></strong>
+    <button class="sheet-btn" id="evBack" hidden data-i18n="ev.back"></button>
+  </div>
+  <div id="evBody"></div>
+  <div class="sheet-pad"></div>
+</div>
+
 <div class="sheet-backdrop" id="bndBackdrop" hidden></div>
 <div class="sheet" id="bndSheet" hidden role="dialog" aria-modal="true">
   <div class="sheet-head">
@@ -459,6 +476,7 @@
       </div>
       <label class="field"><span data-i18n="bnd.f.rubro"></span><select id="bndRubro"></select></label>
       <label class="field"><span data-i18n="bnd.f.pay"></span><select id="bndPay"></select></label>
+      <label class="field"><span data-i18n="sheet.event"></span><select id="bndEvent"></select></label>
     </div>
     <p class="note" id="bndCardNote" data-i18n="bnd.cardnote" hidden></p>
     </div>
@@ -495,6 +513,7 @@
 <script src="presupuesto.js"></script>
 <script src="cuentas.js"></script>
 <script src="bolsillo.js?v=26"></script>
+<script src="eventos.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
