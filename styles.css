@@ -661,5 +661,6 @@ button.rec-row:active { background: var(--surface-2); }
 .acct-form input { padding: 10px; border-radius: 10px; background: var(--bg); color: var(--text); border: 0; font-size: 16px; min-width: 0; }
 .acct-form button { grid-column: 1 / -1; padding: 10px; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 600; }
 .acct-pending { color: var(--danger); font-size: 12px; }
+.acct-asof { color: var(--text-dim); font-size: 12px; }
 .cov-row { cursor: default; }
 .cov-none { color: var(--danger); }

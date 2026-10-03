@@ -2,16 +2,33 @@
 
    Una cuenta es una «forma de pago» con kind:'account'. Así la usan sin cambios los gastos, los
    ingresos, la importación de estados y la bandeja de facturas:
-     { id, icon, name:'BHD ···000000', kind:'account', bank:'BHD', number:'000000', opening: céntimos }
-   - Mientras no se sepa el número real se deja 000000 (se edita tocando la cuenta).
-   - Saldo = saldo inicial + ingresos y transferencias recibidas − gastos y transferencias enviadas. Las tarjetas no
-     tocan el saldo de una cuenta: el pago de la tarjeta sí, y es un gasto con rubro «cuotas».
+     { id, icon, name:'BHD ···1234', kind:'account', bank:'BHD', number:'00112233 1234', opening: céntimos, openingDate:'2026-10-03' }
+   - `number` es el número completo (solo vive en los datos del usuario, nunca en el repo); el nombre enseña los 4
+     últimos. Mientras no se sepa se deja 000000 (se edita tocando la cuenta).
+   - Saldo = saldo conocido + ingresos y transferencias recibidas − gastos y transferencias enviadas, contando SOLO los
+     movimientos posteriores a `openingDate`: lo anterior ya está dentro del saldo conocido, y así se puede importar el
+     historial de meses pasados sin contarlo dos veces. Sin fecha, cuentan todos (compatibilidad).
+   - Las tarjetas no tocan el saldo de una cuenta: pagar la tarjeta sí, y es un gasto con rubro «cuotas».
    - La tabla «Hasta qué día hay datos» enseña, por cuenta y tarjeta, el último movimiento cargado,
      para saber de un vistazo qué falta por importar. */
 window.CUENTAS = (() => {
   'use strict';
 
   const PENDING = '000000';
+  const cleanNumber = (raw) => String(raw || '').replace(/\D/g, '').slice(-20) || PENDING;
+  // Nombre visible: banco + 4 últimos dígitos (o el 000000 mientras no haya número).
+  const nameOf = (bank, number) => bank + ' ···' + (/^0+$/.test(number) ? number : number.slice(-4));
+  const todayIso = () => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  };
+  // Acepta AAAA-MM-DD o DD/MM/AAAA.
+  function parseDate(text) {
+    const s = String(text || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+    return m ? m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : null;
+  }
   let host = null;
   const $ = (s) => document.querySelector(s);
 
@@ -30,11 +47,13 @@ window.CUENTAS = (() => {
     let last = null;
     let n = 0;
     let delta = 0;
+    const since = pay.openingDate || null;
     for (const e of expenses) {
       const incoming = e.kind === 'transfer' && e.to === pay.id;     // llega dinero desde otra cuenta
       if (e.pay !== pay.id && !incoming) continue;
       n++;
       if (!last || e.date > last) last = e.date;
+      if (since && e.date <= since) continue;                         // ya está dentro del saldo conocido
       delta += incoming || e.kind === 'income' ? e.cents : -e.cents;  // sale: gasto o transferencia enviada
     }
     return { last, n, balance: (Number.isFinite(pay.opening) ? pay.opening : 0) + delta };
@@ -71,9 +90,14 @@ window.CUENTAS = (() => {
     if (opening === null) return;
     const cents = host.parseAmount(opening);
     if (!Number.isFinite(cents)) return host.toast(host.t('bud.invalid'));
-    pay.number = (number.replace(/\D/g, '').slice(-8)) || PENDING;
+    const when = prompt(host.t('acct.editDate', { name: pay.name }), pay.openingDate || todayIso());
+    if (when === null) return;
+    const iso = parseDate(when);
+    if (!iso) return host.toast(host.t('acct.badDate'));
+    pay.number = cleanNumber(number);
     pay.opening = cents;
-    pay.name = pay.bank + ' ···' + pay.number;
+    pay.openingDate = iso;
+    pay.name = nameOf(pay.bank, pay.number);
     host.save();
     host.renderAll();
   }
@@ -81,10 +105,10 @@ window.CUENTAS = (() => {
   function addAccount() {
     const bank = $('#acctBank').value.trim().slice(0, 20);
     if (!bank) return host.toast(host.t('acct.needBank'));
-    const number = ($('#acctNumber').value.replace(/\D/g, '').slice(-8)) || PENDING;
+    const number = cleanNumber($('#acctNumber').value);
     const cents = $('#acctOpening').value.trim() ? host.parseAmount($('#acctOpening').value) : 0;
     if (!Number.isFinite(cents)) return host.toast(host.t('bud.invalid'));
-    host.addPay({ icon: '\u{1F3E6}', name: bank + ' ···' + number, kind: 'account', bank: bank, number: number, opening: cents });
+    host.addPay({ icon: '\u{1F3E6}', name: nameOf(bank, number), kind: 'account', bank: bank, number: number, opening: cents, openingDate: todayIso() });
     $('#acctBank').value = '';
     $('#acctNumber').value = '';
     $('#acctOpening').value = '';
@@ -107,7 +131,8 @@ window.CUENTAS = (() => {
       const row = el('button', 'row action');
       row.type = 'button';
       const left = el('span', null, '\u{1F3E6} ' + p.name);
-      if (!p.number || p.number === PENDING) left.appendChild(el('small', 'acct-pending', '  ' + host.t('acct.pending')));
+      if (!p.number || /^0+$/.test(p.number)) left.appendChild(el('small', 'acct-pending', '  ' + host.t('acct.pending')));
+      if (p.openingDate) left.appendChild(el('small', 'acct-asof', '  ' + host.t('acct.asOf', { d: dateText(p.openingDate).slice(0, 5) })));
       row.appendChild(left);
       row.appendChild(el('span', 'chev', host.fmt(s.balance)));
       row.addEventListener('click', () => editAccount(p));
@@ -117,7 +142,7 @@ window.CUENTAS = (() => {
 
     const form = el('form', 'group acct-form');
     const bank = el('input'); bank.id = 'acctBank'; bank.maxLength = 20; bank.placeholder = host.t('acct.bank');
-    const number = el('input'); number.id = 'acctNumber'; number.inputMode = 'numeric'; number.maxLength = 8; number.placeholder = PENDING;
+    const number = el('input'); number.id = 'acctNumber'; number.inputMode = 'numeric'; number.maxLength = 20; number.placeholder = PENDING;
     const opening = el('input'); opening.id = 'acctOpening'; opening.inputMode = 'decimal'; opening.placeholder = host.t('acct.opening');
     const add = el('button', null, host.t('set.add')); add.type = 'submit';
     form.append(bank, number, opening, add);
